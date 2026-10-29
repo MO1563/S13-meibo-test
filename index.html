@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>同盟名簿 武将帳</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,7 +33,7 @@ nav a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visibl
 section.view{display:flex;flex-direction:column;gap:16px;margin-top:16px}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
-input,select{font:inherit;color:var(--ink);background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
+input,select{font:inherit;font-size:16px;color:var(--ink);background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
 input[type=number]{width:7.5em;font-variant-numeric:tabular-nums}
 button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);padding:7px 14px}
 button.pri{background:var(--ai);border-color:var(--ai);color:var(--sheet);font-weight:700}
@@ -55,10 +57,10 @@ details.blk>summary .where::before{content:"見る場所 ";color:var(--ai);font-
 .seg button+button{border-left:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--ai-soft);color:var(--ai);font-weight:700}
 .seg button[aria-pressed="true"][data-v="2"]{background:var(--ai);color:var(--sheet)}
-.gen select{padding:3px 4px;font-size:13px;width:4.4em}
+.gen select{padding:3px 4px;font-size:16px;width:4.6em}
 .xr{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted);padding:0 0 2px 1em}
 .xr label{display:flex;align-items:center;gap:4px}
-.xr input{width:5em;padding:2px 6px;font-size:13px}
+.xr input{width:5em;padding:2px 6px;font-size:16px}
 .legend{font-size:12px;color:var(--muted)}
 .trp{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
 .trp fieldset{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;min-width:0}
@@ -99,8 +101,10 @@ tbody tr:hover{background:var(--ai-soft)}
 .kpis{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:13px;color:var(--muted)}
 .kpis b{font-family:var(--f-disp);font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
 @media (prefers-reduced-motion: no-preference){.cand{transition:border-color .2s}}
-@media (max-width:640px){
-  body{font-size:15px}
+@media (max-width:900px), (pointer:coarse), (hover:none){
+  body{font-size:16px}
+  .legend,.note,.kpis,label.f{font-size:14px}
+  .cat{font-size:14px}
   .wrap{padding-block:12px 110px}
   header{gap:6px}
   h1{font-size:24px}
@@ -113,9 +117,11 @@ tbody tr:hover{background:var(--ai-soft)}
   .blkbody{padding:4px 14px 14px}
   .gens{grid-template-columns:1fr;gap:0}
   .gen{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 0}
-  .gen .nm{grid-column:1/-1;font-size:16px}
-  .seg button{min-width:3em;min-height:38px;font-size:15px}
-  .gen select{width:5.2em;min-height:38px;font-size:15px}
+  .gen .nm{grid-column:1/-1;font-size:18px;font-weight:700}
+  .seg button{min-width:3.2em;min-height:42px;font-size:17px}
+  .gen select{width:5.4em;min-height:42px;font-size:16px}
+  details.blk>summary h2{font-size:21px}
+  details.blk>summary .where{font-size:13px}
   .xr{padding-left:0}
   .xr input{width:5.5em;min-height:34px}
   .trp fieldset{display:grid;grid-template-columns:1fr 1fr;gap:10px}

@@ -1,0 +1,380 @@
+<title>同盟名簿 武将帳</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: 帳面（台帳）のような一列の作業面。上に墨色の見出し帯とタブ、下に入力・名簿・集結の各画面。 */
+:root{
+  --paper:#f3f1ea; --sheet:#fbfaf6; --ink:#1f2330; --muted:#636878; --line:#d9d5c8;
+  --ai:#2c4a7a; --ai-soft:#e3e9f3; --shu:#b5432c; --shu-soft:#f5e3dd;
+  --good:#2f7a4f; --good-soft:#dff0e5; --warn:#a86b12;
+  --f-disp:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#16181f; --sheet:#1e212b; --ink:#e7e5de; --muted:#9a9fae; --line:#323644;
+  --ai:#8fb0e6; --ai-soft:#24324a; --shu:#e48a73; --shu-soft:#40271f;
+  --good:#7cc79a; --good-soft:#1f3a2a; --warn:#e2b45c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#16181f; --sheet:#1e212b; --ink:#e7e5de; --muted:#9a9fae; --line:#323644;
+  --ai:#8fb0e6; --ai-soft:#24324a; --shu:#e48a73; --shu-soft:#40271f;
+  --good:#7cc79a; --good-soft:#1f3a2a; --warn:#e2b45c; color-scheme:dark}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+.wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 120px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:12px}
+h1{font-family:var(--f-disp);font-weight:800;font-size:clamp(26px,5vw,36px);letter-spacing:.06em;margin:0;line-height:1.2;text-wrap:balance}
+h1 small{display:block;font-family:var(--f-body);font-weight:500;font-size:13px;letter-spacing:.08em;color:var(--muted)}
+.conn{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.dot.ok{background:var(--good)}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);display:flex;gap:4px;padding-block:10px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav a{font-family:var(--f-disp);font-weight:600;font-size:17px;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--r);white-space:nowrap}
+nav a[aria-current="page"]{color:var(--sheet);background:var(--ai)}
+nav a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--shu);outline-offset:2px}
+.note{background:var(--shu-soft);border-left:3px solid var(--shu);padding:10px 14px;border-radius:0 var(--r) var(--r) 0;font-size:13px;margin-block:16px}
+.note b{color:var(--shu)}
+section.view{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+input,select{font:inherit;color:var(--ink);background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
+input[type=number]{width:7.5em;font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);padding:7px 14px}
+button.pri{background:var(--ai);border-color:var(--ai);color:var(--sheet);font-weight:700}
+button.pri:disabled{opacity:.45;cursor:default}
+details.blk{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)}
+details.blk>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+details.blk>summary::-webkit-details-marker{display:none}
+details.blk>summary h2{font-family:var(--f-disp);font-size:19px;margin:0;font-weight:600;display:flex;align-items:center;gap:8px}
+details.blk>summary h2::before{content:"▽";font-family:var(--f-body);font-size:14px;color:var(--ai);display:inline-block;transition:transform .2s}
+details.blk[open]>summary h2::before{transform:rotate(180deg)}
+@media (prefers-reduced-motion: reduce){details.blk>summary h2::before{transition:none}}
+details.blk>summary .where{font-size:12px;color:var(--muted)}
+details.blk>summary .where::before{content:"見る場所 ";color:var(--ai);font-weight:700;letter-spacing:.05em}
+.blkbody{padding:4px 16px 16px;display:flex;flex-direction:column;gap:14px;border-top:1px dashed var(--line)}
+.cat{font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--ai);margin-top:8px}
+.gens{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:6px 18px}
+.gen{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}
+.gen .nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:4px 8px;font-size:13px;background:transparent;color:var(--muted);min-width:2.1em}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ai-soft);color:var(--ai);font-weight:700}
+.seg button[aria-pressed="true"][data-v="2"]{background:var(--ai);color:var(--sheet)}
+.gen select{padding:3px 4px;font-size:13px;width:4.4em}
+.xr{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted);padding:0 0 2px 1em}
+.xr label{display:flex;align-items:center;gap:4px}
+.xr input{width:5em;padding:2px 6px;font-size:13px}
+.legend{font-size:12px;color:var(--muted)}
+.trp{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.trp fieldset{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;min-width:0}
+.trp legend{font-family:var(--f-disp);font-weight:600;padding:0 6px}
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--sheet);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.savebar .in{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.status{font-size:13px;color:var(--muted)}
+.status.dirty{color:var(--shu);font-weight:700}
+.tblwrap{overflow-x:auto;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:500;position:sticky;top:0;background:var(--sheet)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--ai-soft)}
+.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:var(--ai-soft);color:var(--ai)}
+.pill.old{background:var(--shu-soft);color:var(--shu)}
+.pill.new{background:var(--good-soft);color:var(--good)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:13px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--sheet);color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ai);border-color:var(--ai);color:var(--sheet)}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{font-family:var(--f-disp);font-size:19px;margin:0;font-weight:600}
+.weights{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 20px}
+.weights input[type=range]{width:100%;accent-color:var(--ai)}
+.rank{display:flex;flex-direction:column;gap:8px}
+.cand{display:grid;grid-template-columns:2.2em minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--sheet)}
+.cand.in{border-color:var(--ai);box-shadow:inset 3px 0 0 var(--ai)}
+.cand .no{font-family:var(--f-disp);font-weight:800;font-size:20px;color:var(--muted);text-align:center}
+.cand.in .no{color:var(--ai)}
+.cand .nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cand .sc{font-family:var(--f-disp);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
+.bars{grid-column:2/4;display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line)}
+.bars i{display:block;height:100%}
+.bars .b1{background:var(--ai)} .bars .b2{background:var(--good)} .bars .b3{background:var(--shu)}
+.miss{grid-column:2/4;font-size:12px;color:var(--muted)}
+.empty{padding:28px;text-align:center;color:var(--muted);background:var(--sheet);border:1px dashed var(--line);border-radius:var(--r)}
+.kpis{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:13px;color:var(--muted)}
+.kpis b{font-family:var(--f-disp);font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
+@media (prefers-reduced-motion: no-preference){.cand{transition:border-color .2s}}
+@media (max-width:480px){.gen{grid-template-columns:minmax(0,1fr) auto}.gen select{grid-column:2}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1><small>獅子の如く 13鯖 同盟</small>同盟名簿 武将帳</h1>
+    <div class="conn"><span class="dot" id="dot"></span><span id="conn">共有データに接続中…</span></div>
+  </header>
+  <nav aria-label="画面">
+    <a href="#input" data-v="input">入力</a>
+    <a href="#roster" data-v="roster">名簿</a>
+    <a href="#rally" data-v="rally">集結</a>
+  </nav>
+
+  <!-- 入力 -->
+  <section class="view" id="v-input">
+    <div class="panel">
+      <div class="row">
+        <label class="f" style="flex:1 1 220px">ユーザー名を選ぶ
+          <input id="who" list="names" placeholder="例：肥後菊池武光" autocomplete="off">
+        </label>
+        <datalist id="names"></datalist>
+        <button id="newMember" type="button">新しく追加</button>
+      </div>
+      <div class="kpis" id="whoInfo"></div>
+    </div>
+
+    <details class="blk" open>
+      <summary><h2>基本</h2><span class="where">町画面上部の戦力／一族→構成城市（「撃破」を「構成員タグ」に）</span></summary>
+      <div class="blkbody"><div class="row">
+        <label class="f">戦力（万）<input type="number" id="power" min="0" step="1"></label>
+        <label class="f">集結数<input type="number" id="rally" min="0" step="1"></label>
+      </div></div>
+    </details>
+
+    <details class="blk">
+      <summary><h2>SP武将</h2><span class="where">主義アイコン左上の数字／副将アイコンを押して画面下を確認</span></summary>
+      <div class="blkbody"><p class="legend">所持していないSP武将は、主義も副将も入力しないでください（所持なし＝入力なし）。</p><div id="spBox"></div></div>
+    </details>
+
+    <details class="blk" open>
+      <summary><h2>武将</h2><span class="where">武将→詳細の覚醒タブと守護霊（左下の合計÷6）</span></summary>
+      <div class="blkbody">
+        <p class="legend">― 未所持　0 覚醒なし（化楽天まで）　1 覚醒（他化自在天）　2 専属守護霊覚醒。2のときは右に守護霊Lv（6枠すべてが到達している数値）を選びます。一部の武将は下に「相克」「必要命魂」「潜能」の欄が出ます（所持していると入力できます）。相克は武将詳細のスキルや衣装の説明にある％（例：ねねは専属守護霊の合計Lv×0.8％、細川藤孝はスキルの％）。</p>
+        <div id="genBox"></div>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary><h2>兵種</h2><span class="where">LV：厩舎・射場・兵舎の訓練の右上／上級軍略：学問所の研究→軍略（進度は初級・中級・上級のLVの合計）／具足：各施設の具足屋／軍馬：牧場の名簿</span></summary>
+      <div class="blkbody"><div class="trp" id="trpBox"></div></div>
+    </details>
+
+    <details class="blk">
+      <summary><h2>加速アイテム</h2><span class="where">倉庫→戦略タブ（アイテムを押すと名前が出ます）</span></summary>
+      <div class="blkbody"><div class="row" id="itemBox"></div></div>
+    </details>
+  </section>
+
+  <!-- 名簿 -->
+  <section class="view" id="v-roster" hidden>
+    <div class="panel">
+      <div class="row">
+        <label class="f" style="flex:1 1 180px">名前で探す<input id="q" placeholder="名前の一部"></label>
+        <label class="f">武将で絞る<select id="fGen"><option value="">指定なし</option></select></label>
+        <label class="f">条件<select id="fMin">
+          <option value="has">所持している</option>
+          <option value="2">専属守護霊覚醒</option>
+          <option value="2-12">専属守護霊Lv12</option>
+        </select></label>
+      </div>
+      <div class="kpis" id="rosterKpi"></div>
+    </div>
+    <div class="tblwrap"><table>
+      <thead><tr><th>ユーザー名</th><th class="n">戦力(万)</th><th class="n">集結数</th><th class="n">専属覚醒</th><th class="n">守護霊Lv計</th><th>更新</th></tr></thead>
+      <tbody id="rosterBody"></tbody>
+    </table></div>
+  </section>
+
+  <!-- 集結 -->
+  <section class="view" id="v-rally" hidden>
+    <p class="note"><b>試作の仮ルールです。</b>集結で何が効くかの仕様が分かったら、点数の付け方を差し替えます。今は「重要武将の育成度」「兵種LV・軍略」「戦力」を重みで足し合わせています。</p>
+    <div class="panel">
+      <h2>条件</h2>
+      <div class="row">
+        <label class="f" style="flex:1 1 200px">集結主<input id="host" list="names" placeholder="ユーザー名"></label>
+        <label class="f">兵種<select id="rType"><option value="">指定なし</option><option>馬</option><option>弓</option><option>歩</option></select></label>
+        <label class="f">参加人数<input type="number" id="rN" min="1" max="30" value="10"></label>
+      </div>
+      <div>
+        <div class="legend" style="margin-bottom:6px">重要武将（押して選ぶ・最初は「全員にお薦め」）</div>
+        <div class="chips" id="keyChips"></div>
+      </div>
+      <div class="weights">
+        <label class="f">重要武将の育成度 <input type="range" id="w1" min="0" max="10" value="6"></label>
+        <label class="f">兵種LV・軍略 <input type="range" id="w2" min="0" max="10" value="3"></label>
+        <label class="f">戦力 <input type="range" id="w3" min="0" max="10" value="2"></label>
+      </div>
+      <div class="legend"><span class="pill">藍</span> 武将　<span class="pill new">緑</span> 兵種　<span class="pill old">朱</span> 戦力　の内訳を棒で表示</div>
+    </div>
+    <div id="hostCard"></div>
+    <div class="rank" id="rank"></div>
+  </section>
+</div>
+
+<div class="savebar" id="savebar">
+  <div class="in">
+    <span class="status" id="status">ユーザー名を選ぶと、前回の値が入った状態で開きます。</span>
+    <button class="pri" id="save" type="button" disabled>保存</button>
+  </div>
+</div>
+
+<script>
+const GENS=[["越境戦おすすめ",[["北条早雲",1],["織田信長",1],["鈴木重秀",1],["本多忠勝",1],["山本勘助",1],["島津家久",1],["堀秀政",1],["鍋島直茂",1],["寿桂尼",1],["直江兼続",1],["真田幸隆",1]]],["全員にお薦め",[["宇喜多直家",1],["上泉信綱",1],["徳川家康",1],["ガラシャ",1],["黒田官兵衛",1],["村井貞勝",1],["石田三成",1],["三浦按針",1],["上杉謙信",1],["真田幸村",1],["井伊直虎",1],["豊臣秀吉",1],["細川藤孝",1],["池田恒興",1]]],["相克",[["伊達政宗",1],["甲斐姫",1],["ねね",1],["斎藤利三",1],["赤井直正",1],["柳生宗厳",1],["伊達成実",1]]],["主要武将",[["櫛橋光",1],["宮本武蔵",1],["尼子経久",1],["立花宗茂",1],["神谷薫",1],["緋村剣心",1],["井伊直政",1],["森長可",1],["加藤清正",1],["果心居士",1],["藤堂高虎",1],["榊原康政",1],["本願寺顕如",1],["上杉景勝",1]]],["新武将",[["織田信忠",1],["佐々成政",1],["愛姫",1],["千利休",1],["島津歳久",1],["福島正則",1],["天草四郎",1],["おつやの方",1],["名古屋山三郎",1],["加藤嘉明",1],["太田道灌",1],["吉川広家",1],["足利義昭",1],["真柄直隆",1],["加藤段蔵",1],["山内一豊",1],["竹林院",1],["仙石秀久",1],["覇・武田信玄",1],["小島弥太郎",1],["略・小早川隆景",1],["毛利輝元",1],["姫・お市",1],["黒田長政",1],["蜂須賀小六",1]]],["旅籠屋武将",[["北条氏康",1],["太原雪斎",1],["蒲生氏郷",1],["竹中半兵衛",1],["毛利元就",1]]],["馬武将",[["武田信玄",1],["北条氏綱",1],["山中鹿之助",1],["高坂昌信",1],["山県昌景",1],["義姫",1],["真田信之",1],["綾御前",1],["柿崎景家",1]]],["歩武将",[["淀殿",1],["小早川隆景",1],["細川忠興",1],["武田信繁",1],["三好長慶",1],["千代",1],["北条綱成",1],["高橋紹運",1],["ﾘｳﾞｧｲ",0]]],["弓武将",[["出雲阿国",1],["伊達稙宗",1],["春日局",1],["秋山信友",1]]],["お薦め地魂武将",[["濃姫",1],["津軽為信",1],["島左近",1],["大谷吉継",1],["前田慶次",1],["伊東一刀斎",1],["伊達輝宗",1],["太田牛一",1],["長野業正",1],["土居清良",1],["村松殿",1]]],["内政系",[["最上義光",1],["南渓瑞聞",1],["松永久秀",1],["今川義元",1],["松平信綱",1]]]];
+const SP=["SP織田信長","SP豊臣秀吉","SP徳川家康","SP濃姫","SP上杉謙信","SP黒田官兵衛"];
+const EXTRA={"北条早雲":["馬相克","弓相克","歩相克"],"織田信長":["必要命魂","馬相克","弓相克","歩相克"],"本多忠勝":["必要命魂"],"山本勘助":["必要命魂"],"三浦按針":["潜能"],"真田幸村":["馬相克","弓相克","歩相克"],"井伊直虎":["馬相克","弓相克","歩相克"],"豊臣秀吉":["馬相克","弓相克","歩相克"],"細川藤孝":["相克"],"池田恒興":["相克"],"伊達政宗":["相克"],"甲斐姫":["相克"],"ねね":["相克"],"斎藤利三":["相克"],"赤井直正":["相克"],"柳生宗厳":["馬相克","弓相克","歩相克"],"伊達成実":["相克"],"森長可":["潜能"],"加藤清正":["潜能"],"果心居士":["潜能"],"上杉景勝":["潜能"],"覇・武田信玄":["潜能"],"略・小早川隆景":["潜能"],"北条氏康":["必要命魂"],"太原雪斎":["必要命魂"],"蒲生氏郷":["必要命魂"],"竹中半兵衛":["必要命魂"],"毛利元就":["必要命魂"],"真田信之":["潜能"]};
+const ITEMS=[["heal2h","治療 2時間"],["heal1h","治療 1時間"],["heal6m","治療 6分"],["march10","行軍 10%"],["march20","行軍 20%"],["sortie10","出征 10%"],["sortie20","出征 20%"]];
+const TROOPS=["馬","弓","歩"];
+const ALLGEN=GENS.flatMap(([c,l])=>l.map(([n,s])=>({n,c,s})));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+
+let db=null, members={}, curId=null, draft=null, dirty=false, canWrite=true;
+
+/* ---------- routing ---------- */
+function route(){const v=(location.hash||"#input").slice(1);const ok=["input","roster","rally"].includes(v)?v:"input";
+  for(const x of ["input","roster","rally"]) $("v-"+x).hidden=x!==ok;
+  document.querySelectorAll("nav a").forEach(a=>{if(a.dataset.v===ok)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  $("savebar").hidden=ok!=="input";
+  if(ok==="roster")renderRoster(); if(ok==="rally")renderRally();}
+addEventListener("hashchange",route);
+
+/* ---------- 入力フォーム構築 ---------- */
+function buildForm(){
+  $("spBox").innerHTML='<div class="gens">'+SP.map((n,i)=>`<div class="gen"><span class="nm">${n}</span>
+    <label class="f" style="flex-direction:row;align-items:center">主義<input type="number" min="0" max="10" id="sp-s-${i}" style="width:4.2em"></label>
+    <select id="sp-f-${i}" aria-label="${n} 副将任命"><option value="">副将</option><option value="0">0 開放なし</option><option value="1">1 副将有効</option><option value="2">2 守護霊有効</option><option value="3">3 衣装＋神格</option></select></div>`).join("")+"</div>";
+  $("genBox").innerHTML=GENS.map(([cat,list])=>`<div class="cat">${cat}</div><div class="gens">`+list.map(([n,s])=>{const k=ALLGEN.findIndex(g=>g.n===n);
+    return `<div class="gen" data-k="${k}"><span class="nm" title="${n}">${n}</span>
+    <span class="seg" role="group" aria-label="${n}">${["","0","1","2"].map(v=>`<button type="button" data-v="${v}" aria-pressed="false">${v===""?"―":v}</button>`).join("")}</span>
+    ${s?`<select aria-label="${n} 守護霊Lv" disabled><option value="">Lv</option>${Array.from({length:12},(_,i)=>`<option>${i+1}</option>`).join("")}</select>`:"<span></span>"}${EXTRA[n]?`<div class="xr">${EXTRA[n].map(l=>`<label>${l}<input type="number" step="0.1" min="0" data-x="${l}" aria-label="${n} ${l}" disabled></label>`).join("")}</div>`:""}</div>`}).join("")+"</div>").join("");
+  $("trpBox").innerHTML=TROOPS.map((t,i)=>`<fieldset><legend>${t}兵</legend>
+    <label class="f">LV<select id="t-lv-${i}"><option value="">―</option>${Array.from({length:15},(_,k)=>k+1).map(v=>`<option value="${v}">${v}</option><option value="${v}+">${v}強化</option>`).join("")}</select></label>
+    <label class="f">上級軍略<select id="t-gr-${i}"><option value="">ー</option><option value="初">初級</option><option value="中">中級</option><option value="上">上級</option></select></label>
+    <label class="f">進度（LV合計値）<input type="number" id="t-pr-${i}" min="0" style="width:5em"></label>
+    <label class="f">具足SR<input type="number" id="t-sr-${i}" min="0" style="width:4.5em"></label>
+    <label class="f">具足SSR<input type="number" id="t-ssr-${i}" min="0" style="width:4.5em"></label>
+    <label class="f">軍馬LV20<input type="number" id="t-hb-${i}" min="0" style="width:4.5em"></label></fieldset>`).join("");
+  $("itemBox").innerHTML=ITEMS.map(([k,l])=>`<label class="f">${l}<input type="number" id="it-${k}" min="0"></label>`).join("");
+  $("genBox").addEventListener("click",e=>{const b=e.target.closest(".seg button");if(!b||!draft)return;
+    const row=b.closest(".gen"), g=ALLGEN[+row.dataset.k], v=b.dataset.v;
+    if(v==="") delete draft.generals[g.n]; else draft.generals[g.n]={...(draft.generals[g.n]||{}),a:+v};
+    if(v!=="2"&&draft.generals[g.n]) delete draft.generals[g.n].s;
+    paintGen(row,g); touch();});
+  $("genBox").addEventListener("input",e=>{const inp=e.target.closest("[data-x]");if(!inp||!draft)return;
+    const g=ALLGEN[+inp.closest(".gen").dataset.k];const e2=draft.generals[g.n];if(!e2)return;e2.x=e2.x||{};
+    if(inp.value==="")delete e2.x[inp.dataset.x];else e2.x[inp.dataset.x]=+inp.value;touch();});
+  $("genBox").addEventListener("change",e=>{const sel=e.target.closest("select");if(!sel||!draft)return;
+    const g=ALLGEN[+sel.closest(".gen").dataset.k]; const e2=draft.generals[g.n]; if(!e2)return;
+    if(sel.value) e2.s=+sel.value; else delete e2.s; touch();});
+  document.querySelector("#v-input").addEventListener("input",e=>{if(!draft||e.target.closest("#genBox")||e.target.id==="who")return;readSimple();touch();});
+  document.querySelector("#v-input").addEventListener("change",e=>{if(!draft||e.target.closest("#genBox")||e.target.id==="who")return;readSimple();touch();});
+}
+function paintGen(row,g){const e=draft&&draft.generals[g.n];const v=e?String(e.a):"";
+  row.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===v?"true":"false"));
+  const sel=row.querySelector("select");if(sel){sel.disabled=v!=="2"||!canWrite;sel.value=e&&e.s?String(e.s):"";}
+  row.querySelectorAll("[data-x]").forEach(inp=>{inp.disabled=!e||!canWrite;inp.value=e&&e.x&&e.x[inp.dataset.x]!=null?e.x[inp.dataset.x]:""});}
+const num=v=>v===""||v==null?null:+v;
+const setv=(id,v)=>{const el=$(id);if(el)el.value=v??""};
+function fillForm(){
+  const d=draft;
+  setv("power",d.power);setv("rally",d.rally);
+  SP.forEach((n,i)=>{const s=(d.sp||{})[n]||{};setv("sp-s-"+i,s.shugi);setv("sp-f-"+i,s.fuku)});
+  document.querySelectorAll("#genBox .gen").forEach(r=>paintGen(r,ALLGEN[+r.dataset.k]));
+  TROOPS.forEach((t,i)=>{const x=(d.troops||{})[t]||{};setv("t-lv-"+i,x.lv?x.lv+(x.lvPlus?"+":""):"");setv("t-gr-"+i,x.gunryaku);setv("t-pr-"+i,x.shindo);setv("t-sr-"+i,x.gusoku_sr);setv("t-ssr-"+i,x.gusoku_ssr);setv("t-hb-"+i,x.gunba)});
+  ITEMS.forEach(([k])=>setv("it-"+k,(d.items||{})[k]));
+  const m=members[curId]; const owned=Object.values(d.generals).length, two=Object.values(d.generals).filter(x=>x.a===2).length;
+  $("whoInfo").innerHTML=`<span><b>${owned}</b>人 所持</span><span><b>${two}</b>人 専属守護霊覚醒</span><span>最終更新 ${esc(m?.updatedAt||"未保存")}</span>${m?.source==="スプシ取込"?'<span class="pill old">スプシから取り込んだ古い値</span>':""}`;
+}
+function readSimple(){const d=draft;
+  d.power=num($("power").value);d.rally=num($("rally").value);
+  d.sp=d.sp||{};SP.forEach((n,i)=>{const s=num($("sp-s-"+i).value),f=num($("sp-f-"+i).value);if(s==null&&f==null)delete d.sp[n];else d.sp[n]={shugi:s,fuku:f}});
+  d.troops=d.troops||{};TROOPS.forEach((t,i)=>{const lvv=$("t-lv-"+i).value;d.troops[t]={lv:lvv?parseInt(lvv,10):null,lvPlus:lvv.endsWith("+"),gunryaku:$("t-gr-"+i).value||null,shindo:num($("t-pr-"+i).value),gusoku_sr:num($("t-sr-"+i).value),gusoku_ssr:num($("t-ssr-"+i).value),gunba:num($("t-hb-"+i).value)}});
+  d.items=d.items||{};ITEMS.forEach(([k])=>d.items[k]=num($("it-"+k).value));}
+function touch(){dirty=true;$("status").textContent="未保存の変更があります";$("status").className="status dirty";$("save").disabled=!canWrite;
+  const two=Object.values(draft.generals).filter(x=>x.a===2).length;}
+function openMember(id){
+  if(!members[id])return; curId=id; draft=structuredClone(members[id]); draft.generals=draft.generals||{}; dirty=false;
+  $("who").value=draft.name; fillForm();
+  $("status").textContent=canWrite?"変わったところだけ直して「保存」を押してください。":"閲覧のみの権限のため保存できません。";$("status").className="status";$("save").disabled=true;
+  try{localStorage.setItem("meibo-who",id)}catch(e){}
+}
+$("who").addEventListener("change",()=>{const n=$("who").value.trim();const id=Object.keys(members).find(k=>members[k].name===n);if(id)openMember(id)});
+$("newMember").addEventListener("click",()=>{const n=$("who").value.trim();
+  if(!n){$("status").textContent="上の欄に新しいユーザー名を入れてから「新しく追加」を押してください。";$("status").className="status dirty";return}
+  if(Object.values(members).some(m=>m.name===n)){$("status").textContent="その名前はもう名簿にあります。";$("status").className="status dirty";return}
+  const id="u"+Date.now().toString(36);members[id]={name:n,generals:{},sp:{},order:9999,updatedAt:null};openMember(id);touch();});
+$("save").addEventListener("click",async()=>{
+  if(!draft||!db)return; readSimple(); $("save").disabled=true; $("status").textContent="保存中…";
+  const body={...draft,updatedAt:today(),source:"入力アプリ"};
+  try{await db.collection("members").doc(curId).set(JSON.parse(JSON.stringify(body)));dirty=false;$("status").textContent="保存しました（"+body.updatedAt+"）";$("status").className="status";}
+  catch(e){$("save").disabled=false;$("status").className="status dirty";
+    $("status").textContent=e&&e.code==="invalid_argument"?"保存できませんでした。この名簿を編集できる権限があるか確認してください。":"保存できませんでした。通信状態を確かめて、もう一度「保存」を押してください。";}
+});
+
+/* ---------- 名簿 ---------- */
+function stats(m){const g=Object.values(m.generals||{});return{two:g.filter(x=>x.a===2).length,lv:g.reduce((a,x)=>a+(x.a===2&&x.s?x.s:0),0)}}
+function sorted(){return Object.entries(members).sort((a,b)=>(b[1].power||0)-(a[1].power||0))}
+function renderRoster(){
+  const q=$("q").value.trim(), fg=$("fGen").value, fm=$("fMin").value;
+  const list=sorted().filter(([,m])=>{if(q&&!m.name.includes(q))return false;if(!fg)return true;const e=(m.generals||{})[fg];if(!e)return false;
+    if(fm==="2")return e.a===2;if(fm==="2-12")return e.a===2&&e.s===12;return true});
+  $("rosterKpi").innerHTML=`<span><b>${list.length}</b>人 表示</span><span><b>${Object.keys(members).length}</b>人 登録</span>`;
+  $("rosterBody").innerHTML=list.length?list.map(([id,m])=>{const s=stats(m);return `<tr data-id="${id}"><td>${esc(m.name)}</td><td class="n">${m.power??"―"}</td><td class="n">${m.rally!=null?Number(m.rally).toLocaleString():"―"}</td><td class="n">${s.two}</td><td class="n">${s.lv}</td><td>${m.source==="スプシ取込"?'<span class="pill old">取込</span>':'<span class="pill new">'+esc(m.updatedAt)+"</span>"}</td></tr>`}).join("")
+    :`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">${Object.keys(members).length?"条件に合う人がいません":"名簿がまだ空です。「入力」画面から最初の1人を追加してください。"}</td></tr>`;
+}
+$("q").addEventListener("input",renderRoster);$("fGen").addEventListener("change",renderRoster);$("fMin").addEventListener("change",renderRoster);
+$("rosterBody").addEventListener("click",e=>{const tr=e.target.closest("tr[data-id]");if(!tr)return;openMember(tr.dataset.id);location.hash="input"});
+
+/* ---------- 集結（仮ルール） ---------- */
+let keySet=new Set(GENS.find(g=>g[0]==="全員にお薦め")[1].map(x=>x[0]));
+function buildChips(){$("keyChips").innerHTML=ALLGEN.filter(g=>g.s).map(g=>`<button type="button" class="chip" data-n="${g.n}" aria-pressed="${keySet.has(g.n)}">${g.n}</button>`).join("");}
+$("keyChips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;const n=b.dataset.n;keySet.has(n)?keySet.delete(n):keySet.add(n);b.setAttribute("aria-pressed",keySet.has(n));renderRally()});
+["host","rType","rN","w1","w2","w3"].forEach(id=>$(id).addEventListener("input",renderRally));
+function genVal(e){if(!e)return 0;if(e.a===2)return .6+.4*((e.s||10)-1)/11;if(e.a===1)return .4;return .15}
+function scoreOf(m,type,maxP){
+  const keys=[...keySet];const g=keys.length?keys.reduce((a,n)=>a+genVal((m.generals||{})[n]),0)/keys.length:0;
+  const tl=type?[type]:TROOPS;const gr={"初":1/3,"中":2/3,"上":1};
+  const t=tl.reduce((a,k)=>{const x=(m.troops||{})[k]||{};return a+((((x.lv||0)+(x.lvPlus?.5:0))/13)*.7+(gr[x.gunryaku]||0)*.3)},0)/tl.length;
+  const p=maxP?(m.power||0)/maxP:0;
+  const w1=+$("w1").value,w2=+$("w2").value,w3=+$("w3").value,W=(w1+w2+w3)||1;
+  return{total:100*(w1*g+w2*Math.min(t,1)+w3*p)/W,parts:[w1*g/W,w2*Math.min(t,1)/W,w3*p/W],missing:keys.filter(n=>{const e=(m.generals||{})[n];return!e||e.a!==2})};
+}
+function renderRally(){
+  const arr=Object.entries(members);if(!arr.length){$("rank").innerHTML='<div class="empty">名簿のデータが読み込まれると、ここに候補が並びます。</div>';$("hostCard").innerHTML="";return}
+  const type=$("rType").value, N=Math.max(1,+$("rN").value||10), hostName=$("host").value.trim();
+  const maxP=Math.max(...arr.map(([,m])=>m.power||0));
+  const hostE=arr.find(([,m])=>m.name===hostName);
+  $("hostCard").innerHTML=hostE?(()=>{const s=scoreOf(hostE[1],type,maxP);return `<div class="panel"><h2>集結主　${esc(hostE[1].name)}</h2><div class="kpis"><span><b>${Math.round(s.total)}</b>点</span><span>重要武将のうち未育成 <b>${s.missing.length}</b>人</span></div>${s.missing.length?`<div class="legend">集結主に足りない重要武将：${s.missing.map(esc).join("、")}</div>`:""}</div>`})():"";
+  const hostMiss=hostE?new Set(scoreOf(hostE[1],type,maxP).missing):null;
+  const list=arr.filter(([id])=>!hostE||id!==hostE[0]).map(([id,m])=>{const s=scoreOf(m,type,maxP);
+    if(hostMiss){const cover=[...hostMiss].filter(n=>{const e=(m.generals||{})[n];return e&&e.a===2}).length;s.cover=cover}return{id,m,s}})
+    .sort((a,b)=>b.s.total-a.s.total).slice(0,Math.max(N+10,20));
+  $("rank").innerHTML=list.map((x,i)=>`<div class="cand ${i<N?"in":""}"><span class="no">${i+1}</span><span class="nm">${esc(x.m.name)}${x.m.source==="スプシ取込"?' <span class="pill old">古い値</span>':""}</span><span class="sc">${Math.round(x.s.total)}</span>
+    <div class="bars" aria-hidden="true"><i class="b1" style="width:${x.s.parts[0]*100}%"></i><i class="b2" style="width:${x.s.parts[1]*100}%"></i><i class="b3" style="width:${x.s.parts[2]*100}%"></i></div>
+    <div class="miss">${hostMiss?`集結主に足りない武将を <b>${x.s.cover}</b> 人補える　`:""}重要武将の未育成 ${x.s.missing.length}人</div></div>`).join("")
+    +`<p class="legend">上位 ${N} 人（枠付き）が候補です。点数は仮ルールによる目安です。</p>`;
+}
+
+/* ---------- データ接続 ---------- */
+function refreshNames(){$("names").innerHTML=sorted().map(([,m])=>`<option value="${esc(m.name)}">`).join("");}
+async function start(){
+  buildForm();buildChips();
+  $("fGen").innerHTML='<option value="">指定なし</option>'+GENS.map(([c,l])=>`<optgroup label="${c}">${l.map(([n])=>`<option>${n}</option>`).join("")}</optgroup>`).join("");
+  route();
+  db=await window.claude?.use?.("db").catch(()=>null)??null;
+  const user=await window.claude?.use?.("user").catch(()=>null)??null;
+  if(!db){$("conn").textContent="共有データに接続できません（サインインが必要です）";renderRally();renderRoster();return}
+  try{const c=await user?.can?.("data.write");if(c===false){canWrite=false}}catch(e){}
+  db.collection("members").onSnapshot(snap=>{
+    snap.docChanges().forEach(ch=>{if(ch.type==="removed")delete members[ch.doc.id];else members[ch.doc.id]=ch.doc.data()});
+    $("dot").classList.add("ok");$("conn").textContent=`共有データ ${Object.keys(members).length}人`+(canWrite?"":"（閲覧のみ）");
+    refreshNames();
+    if(!curId){let last=null;try{last=localStorage.getItem("meibo-who")}catch(e){}
+      const id=(last&&members[last])?last:Object.keys(members).find(k=>members[k].name==="肥後菊池武光");if(id)openMember(id)}
+    else if(!dirty&&members[curId])openMember(curId);
+    const v=(location.hash||"#input").slice(1);if(v==="roster")renderRoster();if(v==="rally")renderRally();
+  },err=>{$("conn").textContent="共有データの読み込みが止まりました。ページを開き直してください。"});
+}
+start();
+</script>

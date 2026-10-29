@@ -10,16 +10,9 @@
   --good:#2f7a4f; --good-soft:#dff0e5; --warn:#a86b12;
   --f-disp:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
   --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
-  --r:8px;
+  --r:8px; color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --paper:#16181f; --sheet:#1e212b; --ink:#e7e5de; --muted:#9a9fae; --line:#323644;
-  --ai:#8fb0e6; --ai-soft:#24324a; --shu:#e48a73; --shu-soft:#40271f;
-  --good:#7cc79a; --good-soft:#1f3a2a; --warn:#e2b45c; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --paper:#16181f; --sheet:#1e212b; --ink:#e7e5de; --muted:#9a9fae; --line:#323644;
-  --ai:#8fb0e6; --ai-soft:#24324a; --shu:#e48a73; --shu-soft:#40271f;
-  --good:#7cc79a; --good-soft:#1f3a2a; --warn:#e2b45c; color-scheme:dark}
+/* 画面のテーマに関係なく、どの端末でも同じ明るい台帳の色で表示する */
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
 .wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 120px}
@@ -106,7 +99,39 @@ tbody tr:hover{background:var(--ai-soft)}
 .kpis{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:13px;color:var(--muted)}
 .kpis b{font-family:var(--f-disp);font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
 @media (prefers-reduced-motion: no-preference){.cand{transition:border-color .2s}}
-@media (max-width:480px){.gen{grid-template-columns:minmax(0,1fr) auto}.gen select{grid-column:2}}
+@media (max-width:640px){
+  body{font-size:15px}
+  .wrap{padding-block:12px 110px}
+  header{gap:6px}
+  h1{font-size:24px}
+  .conn{width:100%}
+  nav{gap:2px}
+  nav a{font-size:16px;padding:6px 12px;flex:1;text-align:center}
+  input,select{font-size:16px}
+  details.blk>summary{flex-direction:column;align-items:flex-start;gap:4px;padding:12px 14px}
+  details.blk>summary .where{font-size:12px;line-height:1.5}
+  .blkbody{padding:4px 14px 14px}
+  .gens{grid-template-columns:1fr;gap:0}
+  .gen{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 0}
+  .gen .nm{grid-column:1/-1;font-size:16px}
+  .seg button{min-width:3em;min-height:38px;font-size:15px}
+  .gen select{width:5.2em;min-height:38px;font-size:15px}
+  .xr{padding-left:0}
+  .xr input{width:5.5em;min-height:34px}
+  .trp fieldset{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .trp fieldset input,.trp fieldset select{width:100%!important}
+  #itemBox{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #itemBox input,#v-input .row input[type=number]{width:100%}
+  #v-input .blkbody>.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #spBox .gen{grid-template-columns:auto 1fr}
+  #spBox .gen select{width:100%}
+  th,td{padding:8px}
+  table{font-size:13px}
+  .cand{padding:10px}
+  .savebar .in{flex-wrap:nowrap}
+  .savebar .status{font-size:12px}
+  .savebar button.pri{padding:10px 22px;flex:none}
+}
 </style>
 
 <div class="wrap">

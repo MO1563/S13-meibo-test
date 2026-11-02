@@ -1,15 +1,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>同盟名簿 武将帳</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<title>覇権同盟名簿 武将帳</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
+/* 基本の初期化（Apps Scriptでも同じ見た目にするため） */
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+*,*::before,*::after{box-sizing:border-box}
+img{max-width:100%}
 /* Layout: 帳面（台帳）のような一列の作業面。上に墨色の見出し帯とタブ、下に入力・名簿・集結の各画面。 */
 :root{
   --paper:#f3f1ea; --sheet:#fbfaf6; --ink:#1f2330; --muted:#636878; --line:#d9d5c8;
   --ai:#2c4a7a; --ai-soft:#e3e9f3; --shu:#b5432c; --shu-soft:#f5e3dd;
-  --good:#2f7a4f; --good-soft:#dff0e5; --warn:#a86b12;
+  --good:#2f7a4f; --good-soft:#dff0e5; --warn:#a86b12; --warn-soft:#f6ead2;
   --f-disp:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
   --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
   --r:8px; color-scheme:light;
@@ -23,6 +28,9 @@ h1{font-family:var(--f-disp);font-weight:800;font-size:clamp(26px,5vw,36px);lett
 h1 small{display:block;font-family:var(--f-body);font-weight:500;font-size:13px;letter-spacing:.08em;color:var(--muted)}
 .conn{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.ver{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+#reload{font-size:14px;padding:6px 12px;border-color:var(--ai);color:var(--ai);font-weight:700}
 .dot.ok{background:var(--good)}
 nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);display:flex;gap:4px;padding-block:10px;border-bottom:1px solid var(--line);overflow-x:auto}
 nav a{font-family:var(--f-disp);font-weight:600;font-size:17px;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:var(--r);white-space:nowrap}
@@ -60,15 +68,246 @@ details.blk>summary .where::before{content:"見る場所 ";color:var(--ai);font-
 .gen select{padding:3px 4px;font-size:16px;width:4.6em}
 .xr{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted);padding:0 0 2px 1em}
 .xr label{display:flex;align-items:center;gap:4px}
+.xr .hint{flex-basis:100%;font-size:13px;color:var(--ai);background:var(--ai-soft);padding:4px 8px;border-radius:4px}
 .xr input{width:5em;padding:2px 6px;font-size:16px}
 .legend{font-size:12px;color:var(--muted)}
 .trp{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
 .trp fieldset{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;min-width:0}
 .trp legend{font-family:var(--f-disp);font-weight:600;padding:0 6px}
+.ac{position:relative;display:block}
+.ac input{width:100%}
+.ac-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:var(--sheet);border:1px solid var(--ai);border-radius:8px;box-shadow:0 8px 20px rgba(31,35,48,.18);max-height:min(55vh,360px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ac-list button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 14px;font-size:17px;background:transparent;color:var(--ink)}
+.ac-list button:last-child{border-bottom:0}
+.ac-list button[aria-selected="true"],.ac-list button:hover{background:var(--ai-soft)}
+.ac-list mark{background:transparent;color:var(--ai);font-weight:700}
+.ac-list small{font-size:13px;color:var(--muted);white-space:nowrap}
+.ac-list .none{padding:12px 14px;color:var(--muted);font-size:15px}
+.rallies{display:grid;grid-template-columns:1fr;gap:14px}
+.rline{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding-bottom:6px}
+.rline>.rcard{display:grid;grid-template-columns:230px minmax(0,1fr) minmax(260px,340px);gap:10px 16px;align-items:start}
+.rc-a,.rc-b,.rc-c{display:flex;flex-direction:column;gap:8px;min-width:0}
+.rc-d{grid-column:1/-1}
+.rc-b .rrow{flex-wrap:wrap}
+.rc-b .rrow select{flex:0 1 220px}
+.rc-b .rrow .nm{flex:0 1 220px}
+.rc-b .rrow .nm{flex:0 1 220px}
+.gpanels{display:flex;flex-direction:column;gap:6px;padding-left:24px;border-left:3px solid var(--ai-soft);margin-left:8px}
+.gpanel{display:grid;grid-template-columns:140px repeat(5,minmax(0,1fr)) minmax(200px,1fr);gap:10px;align-items:start;background:var(--sheet);border:1px solid var(--line);border-left:3px solid var(--ai);border-radius:var(--r);padding:8px 10px}
+.gph{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gph .tag{font-size:12px;font-weight:700;color:var(--sheet);background:var(--ai);border-radius:4px;padding:2px 6px}
+.gph .tag.p{background:var(--muted)}
+.gph .gk{font-family:var(--f-disp);font-weight:800}
+.gpl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.gpl .gpf{flex-direction:column;align-items:flex-start}
+.gprow{display:grid;grid-template-columns:2.6em minmax(0,1fr);gap:4px 6px;align-items:center;padding-left:8px;border-left:1px dashed var(--line);min-width:0}
+.gprow .bt{text-align:left!important;white-space:nowrap;grid-column:1}
+.gprow .role{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
+.gpx{display:grid;gap:4px;padding-left:8px;border-left:1px dashed var(--line);min-width:0;font-size:12px}
+.gpx label{display:grid;grid-template-columns:3.2em minmax(0,1fr);align-items:center;gap:4px}
+.gpx label span,.himes>span{font-size:11px;font-weight:700;color:var(--muted)}
+.gpx select,.gpx input{min-width:0;width:100%;font-size:12px;padding:3px 4px}
+.himes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+.himes>span{grid-column:1/-1}
+.gcell{display:grid;gap:3px;min-width:0}
+.subs{display:grid;grid-template-columns:2em minmax(0,1fr);align-items:center;gap:2px}
+.subs .gslot .gi{width:18px;height:18px;font-size:10px}
+.subs>span{font-size:10px;font-weight:700;color:var(--warn)}
+.subs.ky>span{color:var(--ai)}
+.subs .gslot{height:28px!important;min-height:28px!important}
+.gslot .ph{font-size:11px;color:var(--muted);margin-left:2px}
+.gprow .bt{font-size:12px;font-weight:700;color:var(--muted);text-align:center}
+.gprow select,.gprow input{min-width:0;width:100%;font-size:13px;padding:4px}
+.gprow input.ov{border-color:var(--warn);background:var(--warn-soft);color:var(--warn);font-weight:700}
+.gpf{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+.gpf button{font-size:12px;padding:3px 8px}
+.rcard{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px}
+.rcard.warn{border-color:var(--shu)}
+.rhead{display:flex;gap:8px;align-items:center}
+.rhead input{flex:1;min-width:0;font-weight:700}
+.rhead .rsc{font-family:var(--f-disp);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rrow{display:flex;align-items:center;gap:8px}
+.rrow .tag{font-size:12px;font-weight:700;color:var(--sheet);background:var(--ai);border-radius:4px;padding:2px 6px;white-space:nowrap}
+.rrow .tag.p{background:var(--muted)}
+.rrow select{flex:1;min-width:0}
+.rrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x{border:0;background:transparent;color:var(--shu);font-weight:700;padding:4px 8px;font-size:17px}
+.rfoot{font-size:12px;color:var(--muted)}
+.rfoot.bad{color:var(--shu);font-weight:700}
+.chip.m{display:inline-flex;align-items:center;gap:2px;color:var(--ink);padding:3px 4px 3px 10px}
+.rules2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rules2 .panel{display:grid;gap:8px;align-content:start}
+.rules2 p{margin:0}
+.k{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--sheet);background:var(--ai);border-radius:4px;padding:2px 8px;justify-self:start}
+.k.g{background:var(--shu)}
+.rh{font-family:var(--f-disp);font-size:17px;margin:0 0 8px;font-weight:600}
+.rlist{margin:0;padding-left:20px;display:grid;gap:4px}
+td.lim{font-family:var(--f-disp);font-weight:800;font-size:18px;text-align:right;font-variant-numeric:tabular-nums}
+td.lim.lo{color:var(--shu)}
+.kab{margin:0;padding:8px 10px;background:var(--warn-soft);border-radius:6px;list-style:none;display:grid;gap:4px;font-size:13px;color:var(--ink)}
+.kab b{color:var(--warn)}
+.kab .kh,.kuse .kh2,.cres .kh2{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.kuse{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.kuse .kh2{width:100%}
+.kchip{font-size:12px;border:1px solid var(--good);color:var(--good);border-radius:999px;padding:1px 8px;white-space:nowrap;display:inline-flex;gap:4px;align-items:baseline}
+.kchip small{font-size:11px;font-variant-numeric:tabular-nums}
+.kchip.full{background:var(--good-soft)}
+.ksum{display:flex}
+.ktog{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);font-size:13px;text-align:left;min-height:0!important}
+.kp{font-weight:700;border-radius:999px;padding:1px 9px;font-size:12px;white-space:nowrap}
+.kp.over{background:var(--warn);color:var(--sheet)}
+.kp.lack{background:var(--ai-soft);color:var(--ai)}
+.kp.full{background:var(--good-soft);color:var(--good)}
+.kp.ok{background:var(--good);color:var(--sheet)}
+.hstbl input{width:4.6em}.hstbl td,.hstbl th{padding:3px 4px;white-space:nowrap}
+.kp.ot{background:var(--shu-soft,#fbe3dc);color:var(--shu,#b23a1e)}
+.ochk{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.ochk label{display:flex;align-items:center;gap:6px;font-size:14px}
+.ochk input[type=checkbox]{width:20px;height:20px}
+.oline{font-size:13px;margin:3px 0;line-height:1.5}.oline b.ov{color:var(--warn)}
+.kar{margin-left:auto;font-size:12px;color:var(--muted)}
+.kline{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.kl{font-size:11px;font-weight:700;color:var(--muted);min-width:2.4em}
+.kc{display:inline-flex;align-items:baseline;gap:3px;font-size:12px;border-radius:5px;padding:1px 6px;border:1px solid var(--line);background:var(--sheet);white-space:nowrap}
+.kc i{font-style:normal;font-size:10px;color:var(--muted)}
+.kc b{font-size:11px;font-variant-numeric:tabular-nums}
+.kc.over{border-color:var(--warn);background:var(--warn-soft)}.kc.over b{color:var(--warn)}
+.kc.lack b{color:var(--ai)}
+.kc.full b{color:var(--good)}
+.khelp{margin:0;font-size:11px;color:var(--muted)}
+.kchip.lack{border-color:var(--ai);color:var(--ai);background:var(--ai-soft)}
+.kmore summary{font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;letter-spacing:.04em}
+.kmore .kuse{margin-top:4px}
+.rcard.soft{border-color:var(--warn)}
+.rrow.sub{padding-left:62px;margin-top:-4px}
+.gdsel{display:inline-flex;gap:2px;flex:none}
+.gdsel button{min-width:26px;padding:2px 0;font-size:12px;border-radius:4px;border:1px solid var(--line);background:var(--sheet);color:var(--muted)}
+.gdsel button[aria-pressed="true"]{background:var(--ai);border-color:var(--ai);color:var(--sheet);font-weight:700}
+.gdsel button.emp{border-style:dashed}
+.gdtabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.gdtabs button{min-width:64px}
+.gdtabs button[aria-pressed="true"]{background:var(--ai);color:var(--sheet);border-color:var(--ai)}
+.gdtabs small{color:var(--good);margin-left:2px}
+.gdtabs button[aria-pressed="true"] small{color:var(--sheet)}
+.gdgrid{display:grid;gap:6px}
+.gdbt,.gdsub{display:grid;grid-template-columns:4.5em 5.5em repeat(3,minmax(0,1fr));gap:6px;align-items:center}
+.gdsub{grid-template-columns:4.5em repeat(5,minmax(0,1fr));margin-top:8px}
+.gdsub:last-of-type{grid-template-columns:repeat(2,minmax(0,1fr)) auto;align-items:end}
+.gdhd span{font-size:11px;font-weight:700;color:var(--muted)}
+.gdtop{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;margin:0 0 8px}
+.gdbt .bt,.gdsub .bt{font-size:13px;font-weight:700;color:var(--muted)}
+.gdbt input,.gdsub input,.gdbt select,.gdbt .gslot{min-width:0;width:100%}
+@media (max-width:720px){.gdbt{grid-template-columns:1fr 1fr}.gdbt .bt{grid-column:1/-1}.gdsub{grid-template-columns:1fr 1fr}.gdsub .bt{grid-column:1/-1}.gdsub:last-of-type{grid-template-columns:1fr}.rrow.sub{padding-left:0}}
+.ctog{justify-self:start;align-self:flex-start;font-size:13px;padding:4px 10px;border:1px dashed var(--ai);color:var(--ai);background:transparent;border-radius:999px}
+.cpanel{display:grid;gap:8px;padding:10px;border:1px solid var(--ai-soft);background:var(--ai-soft);border-radius:6px}
+.cchips{display:flex;flex-wrap:wrap;gap:4px}
+.cchip{display:inline-flex;align-items:center;gap:2px;font-size:13px;background:var(--sheet);border:1px solid var(--ai);color:var(--ai);border-radius:999px;padding:1px 2px 1px 10px}
+.cchip .x{font-size:15px;padding:2px 6px}
+.cform{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cform select,.cform input{flex:1 1 110px;min-width:0;font-size:14px}
+.cform button{flex:0 0 auto}
+.cres{display:grid;gap:4px}
+.ccand{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;background:var(--sheet);border-radius:6px;padding:6px 8px}
+.ccand .nm{flex:1 1 auto;font-weight:700}
+.ccand button{font-size:13px;padding:3px 10px}
+.ccand .miss{width:100%;font-size:12px;color:var(--warn)}
+.cm{font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;background:var(--warn-soft);color:var(--warn);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cm.ok{background:var(--good-soft);color:var(--good)}
+.kab .who{color:var(--muted)}
+.kabok{font-size:12px;color:var(--good);font-weight:700}
+@media (max-width:720px){.rules2{grid-template-columns:1fr}}
+/* 武将の枠と選択画面 */
+.gslot{display:flex;align-items:center;gap:4px;min-width:0;width:100%;height:32px;min-height:32px;padding:3px 4px;line-height:1.2;border:1px solid var(--line);border-radius:6px;background:var(--sheet);color:var(--ink);font-size:12px;text-align:left;cursor:pointer}
+.gpanel .gslot,.gdbt .gslot{height:36px!important;min-height:36px!important;padding:2px 4px!important;font-size:12px!important}
+.gslot .gn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.gslot.empty{border-style:dashed;justify-content:center;color:var(--muted)}
+.gslot .plus{font-size:16px;line-height:1}
+.gslot.ov{border-color:var(--warn);background:var(--warn-soft)}
+.gi{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;font-family:var(--f-disp);font-weight:800;font-size:12px;color:var(--sheet);background:var(--muted)}
+.gi.s1{background:var(--ai)}.gi.s2{background:var(--shu)}.gi.sp{background:var(--warn)}
+.gpk{position:fixed;inset:0;z-index:50;background:rgba(20,22,30,.45);display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.gpk-box{background:var(--sheet);border-radius:var(--r);width:min(640px,100%);max-height:min(80vh,720px);display:flex;flex-direction:column;gap:8px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.gpk-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gpk-h b{font-family:var(--f-disp);font-size:17px}
+.gpk-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.gpk-tools input{flex:1 1 160px;min-width:0;font-size:16px}
+.gpk-f{display:inline-flex;gap:4px}
+.gpk-f button{font-size:13px;padding:4px 10px}
+.gpk-f button[aria-pressed="true"]{background:var(--ai);color:var(--sheet);border-color:var(--ai)}
+.gpk-list{overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:2px}
+.gtile{display:grid;justify-items:center;gap:2px;padding:8px 4px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
+.gtile .gi{width:40px;height:40px;font-size:20px}
+.gtile .gn{font-size:12px;font-weight:700;text-align:center;line-height:1.3}
+.gtile small{font-size:10px;color:var(--muted)}
+.gtile.cur{outline:2px solid var(--ai)}
+.gtile:hover:not(:disabled){border-color:var(--ai)}
+.gtile:disabled{opacity:.4;cursor:not-allowed}
+.gtile .uat{font-size:10px;color:var(--shu);font-weight:700}
+.gpk-foot{display:flex;justify-content:flex-end}
+/* 閲覧 */
+.pvgds{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.pvgd{border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:grid;gap:4px}
+.pvgd h4{margin:0;font-family:var(--f-disp);font-size:16px}
+.pvbt{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:13px}
+.pvbt .bt{font-weight:700;color:var(--muted);min-width:2.6em}
+.pvbt .bt i{font-style:normal;font-size:11px;margin-left:3px;background:var(--ai-soft);color:var(--ai);border-radius:3px;padding:0 4px}
+.pvbt .gnm{border:1px solid var(--line);border-radius:999px;padding:0 8px}
+.pvbt .gnm.two{border-color:var(--shu);color:var(--shu)}
+.pvx{font-size:12px;color:var(--muted)}
+body.viewonly nav{display:none}
+.panel.pvbar{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.pvnav{display:flex;align-items:center;justify-content:center;gap:16px;margin-block:12px}
+.pvnav button{font-family:var(--f-disp);font-weight:600;font-size:17px;min-width:88px;min-height:44px}
+#pvPos{font-family:var(--f-disp);font-weight:800;font-size:18px;font-variant-numeric:tabular-nums;min-width:80px;text-align:center}
+.pvstage{overflow:hidden;touch-action:pan-y}
+.pvcard{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:grid;gap:12px;will-change:transform}
+.pvcard h3{font-family:var(--f-disp);font-size:18px;margin:8px 0 0;border-bottom:1px solid var(--line);padding-bottom:4px}
+.pvcard h3 small{font-family:var(--f-body);font-size:12px;color:var(--muted);font-weight:400}
+.pvh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:10px}
+.pvh h2{font-family:var(--f-disp);font-weight:800;font-size:clamp(24px,5vw,32px);margin:0;letter-spacing:.04em;word-break:break-all}
+.pvtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.pvkpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.pvk{background:var(--paper);border-radius:6px;padding:8px 10px;display:grid;gap:2px}
+.pvk span{font-size:12px;color:var(--muted)}
+.pvk b{font-family:var(--f-disp);font-size:22px;font-variant-numeric:tabular-nums}
+.pvtroops{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pvt{border:1px solid var(--line);border-radius:6px;padding:10px;display:grid;gap:6px;min-width:0}
+.pvt h4{margin:0;font-size:13px;color:var(--muted)}
+.pvlv{display:flex;align-items:baseline;gap:6px}
+.pvlv b{font-family:var(--f-disp);font-size:40px;line-height:1}
+.pvlv .plus{font-size:12px;font-weight:700;color:var(--sheet);background:var(--shu);border-radius:4px;padding:1px 6px}
+.pvlv small{color:var(--muted)}
+.pvt dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px}
+.pvt dt{color:var(--muted)}.pvt dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.pvsps{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.pvsp{border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:grid;gap:4px;font-size:13px}
+.pvsp b{font-family:var(--f-disp);font-size:15px}
+.pvcat{display:grid;gap:6px}
+.pvcat h4{margin:4px 0 0;font-size:12px;color:var(--muted);letter-spacing:.06em}
+.pvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.pvg{border:1px solid var(--line);border-left-width:4px;border-radius:6px;padding:6px 8px;display:grid;gap:2px;min-width:0}
+.pvg .gn{font-weight:700;font-size:14px}
+.pvg .st{font-size:11px;font-weight:700}
+.pvg.two{border-left-color:var(--shu)}.pvg.two .st{color:var(--shu)}
+.pvg.one{border-left-color:var(--ai)}.pvg.one .st{color:var(--ai)}
+.pvg.zero{border-left-color:var(--muted)}.pvg.zero .st{color:var(--muted)}
+.pvg.none{opacity:.45;border-style:dashed}
+.pvg .lvrow{display:flex;align-items:center;gap:6px}
+.pvg .lvrow b{font-family:var(--f-disp);font-size:16px;font-variant-numeric:tabular-nums}
+.pvg .ex{display:flex;flex-wrap:wrap;gap:2px 8px;font-size:11px;color:var(--muted)}
+.seg12{display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;flex:1;min-width:60px;max-width:120px;vertical-align:middle;margin-left:4px}
+.seg12 i{height:6px;border-radius:2px;background:var(--line)}
+.seg12 i.on{background:var(--shu)}
+.pvsp .seg12 i.on{background:var(--ai)}
+.linkbtn{border:0;background:transparent;padding:0;font:inherit;color:var(--ai);text-decoration:underline;text-underline-offset:3px;cursor:pointer;text-align:left}
+.editbtn{font-size:12px;padding:2px 8px}
+@media (max-width:720px){.pvtroops{grid-template-columns:1fr}.pvcard{padding:14px}}
+body.wide .wrap{max-width:1400px}
 .savebar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--sheet);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 .savebar .in{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .status{font-size:13px;color:var(--muted)}
 .status.dirty{color:var(--shu);font-weight:700}
+.status.wait{color:#9a6a00;font-weight:700}.status.ok{color:var(--good);font-weight:700}.status.err{color:#fff;background:var(--shu);font-weight:700;padding:2px 8px;border-radius:6px}
 .tblwrap{overflow-x:auto;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r)}
 table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
@@ -76,6 +315,11 @@ th{font-size:12px;color:var(--muted);font-weight:500;position:sticky;top:0;backg
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 tbody tr{cursor:pointer}
 tbody tr:hover{background:var(--ai-soft)}
+.bklist{margin:6px 0 0;padding-left:20px;line-height:1.9}
+th.ck,td.ck{width:44px;text-align:center;padding:0}
+td.ck input,th.ck input{width:22px;height:22px;margin:10px}
+button.danger{border-color:var(--shu);color:var(--shu);font-weight:700}
+button.danger:disabled{opacity:.4}
 .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:var(--ai-soft);color:var(--ai)}
 .pill.old{background:var(--shu-soft);color:var(--shu)}
 .pill.new{background:var(--good-soft);color:var(--good)}
@@ -95,7 +339,7 @@ tbody tr:hover{background:var(--ai-soft)}
 .cand .sc{font-family:var(--f-disp);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
 .bars{grid-column:2/4;display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line)}
 .bars i{display:block;height:100%}
-.bars .b1{background:var(--ai)} .bars .b2{background:var(--good)} .bars .b3{background:var(--shu)}
+.bars .b1{background:var(--ai)} .bars .b2{background:var(--good)} .bars .b3{background:var(--shu)} .bars .b4{background:#9a9a9a}
 .miss{grid-column:2/4;font-size:12px;color:var(--muted)}
 .empty{padding:28px;text-align:center;color:var(--muted);background:var(--sheet);border:1px dashed var(--line);border-radius:var(--r)}
 .kpis{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:13px;color:var(--muted)}
@@ -109,6 +353,9 @@ tbody tr:hover{background:var(--ai-soft)}
   header{gap:6px}
   h1{font-size:24px}
   .conn{width:100%}
+  .hdr-r{width:100%;flex-direction:row;justify-content:space-between;align-items:center}
+  .hdr-r .conn{width:auto}
+  #reload{font-size:15px;padding:8px 14px}
   nav{gap:2px}
   nav a{font-size:16px;padding:6px 12px;flex:1;text-align:center}
   input,select{font-size:16px}
@@ -135,20 +382,101 @@ tbody tr:hover{background:var(--ai-soft)}
   table{font-size:13px}
   .cand{padding:10px}
   .savebar .in{flex-wrap:nowrap}
+  .rallies{grid-template-columns:1fr}
+  .rline>.rcard{grid-template-columns:1fr}
+  .gpanel{grid-template-columns:1fr}
+  .gpl{grid-column:1/-1}
+  .gpanels{padding-left:0;margin-left:0;border-left:0}
+  .gprow select,.gprow input{font-size:16px}
+  .rrow select,.rhead input{min-height:42px}
+  #v-plan .row button{flex:1 1 auto;min-height:44px}
   .savebar .status{font-size:12px}
   .savebar button.pri{padding:10px 22px;flex:none}
 }
+/* スキル一覧 */
+.sl-bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.sl-bar input[type=search]{flex:1 1 220px;min-width:0;font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--sheet);color:var(--ink)}
+.sl-chips{display:flex;gap:6px;flex-wrap:wrap}
+.sl-chip{font:inherit;font-size:14px;padding:5px 12px!important;min-height:0!important;border-radius:999px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);cursor:pointer}
+.sl-chip[aria-pressed="true"]{background:var(--ai);border-color:var(--ai);color:var(--sheet)}
+.sl-tog{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}.sl-tog input{width:18px;height:18px}
+.sl-count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
+.sl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:12px;margin-top:12px}
+.sl-card{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.sl-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sl-name{font-family:var(--f-disp);font-weight:800;font-size:19px;letter-spacing:.05em}
+.sl-tr{font-size:12px;font-weight:700;padding:0 9px;border-radius:999px;border:1px solid currentColor}
+.sl-tr.馬{color:var(--warn)}.sl-tr.弓{color:var(--good)}.sl-tr.歩{color:var(--ai)}.sl-tr.全{color:var(--muted)}
+.sl-lim{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sl-lim b{color:var(--ink);font-size:14px}.sl-lim b.lo{color:var(--shu)}
+.sl-note{font-size:12px;color:var(--muted)}
+.sl-sec{display:grid;grid-template-columns:4.2em 1fr;gap:4px 10px;align-items:start;font-size:14px;line-height:1.7}
+.sl-lab{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;padding-top:2px}
+.sl-sk b{color:var(--ai);margin-right:4px}
+.sl-g6{background:var(--ai-soft);border-radius:6px;padding:6px 10px}.sl-g6 .sl-k{font-size:12px;font-weight:700;color:var(--ai);margin-right:6px}
+.sl-g24{font-size:13px;color:var(--muted);margin-top:4px}
+.sl-card mark{background:var(--shu-soft);color:var(--shu);font-weight:700;border-radius:3px;padding:0 2px}
+@media (max-width:480px){.sl-sec{grid-template-columns:1fr}.sl-lab{padding-top:0}}
+/* 読み込み中は赤、完了で緑（数秒で元に戻る）、失敗は赤のまま */
+.ldbar{display:none;position:sticky;top:0;z-index:60;text-align:center;font-weight:700;font-size:15px;padding:10px 12px;color:#fff;letter-spacing:.02em}
+html.ld-busy body,html.ld-err body{background:#fbe0dc}
+html.ld-ok body{background:#dcf2e0}
+html.ld-busy .ldbar,html.ld-err .ldbar{display:block;background:#c0392b}
+html.ld-ok .ldbar{display:block;background:#2e8b57}
+html.ld-busy body,html.ld-ok body,html.ld-err body{transition:background-color .4s}
+
+/* 記入シート（印刷） */
+#printArea{display:none}
+@media print{
+  @page{size:A4 portrait;margin:8mm}
+  html,body,html.ld-busy body,html.ld-ok body,html.ld-err body{background:#fff!important}
+  body.printing>*:not(#printArea){display:none!important}
+  body.printing #printArea{display:block!important}
+}
+.ps-page{width:194mm;height:280mm;overflow:hidden;color:#000;font-family:var(--f-body);font-size:8pt;line-height:1.3;break-after:page;page-break-after:always;display:flex;flex-direction:column;gap:1.6mm}
+.ps-page:last-child{break-after:auto;page-break-after:auto}
+.ps-h{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.5mm solid #000;padding-bottom:1mm}
+.ps-t{font-family:var(--f-disp);font-size:12pt;margin-right:3mm}.ps-st{font-size:8.5pt}
+.ps-nm{font-size:9.5pt}.ps-line{display:inline-block;min-width:48mm;border-bottom:.3mm solid #000;padding:0 1mm;font-weight:700}.ps-line.s{min-width:8mm}
+.ps-lg,.ps-n{margin:0;font-size:7pt;color:#333}.ps-n.b{font-size:7.3pt}
+.ps-s h3{margin:0 0 .8mm;font-size:9pt;font-family:var(--f-disp);border-left:1.2mm solid #000;padding-left:1.5mm}
+.ps-s h3 small{font-family:var(--f-body);font-weight:400;font-size:6.8pt;color:#444;margin-left:2mm}
+.ps-row{display:flex;flex-wrap:wrap;gap:1mm 2.5mm;align-items:center;margin:.6mm 0}
+.ps-k{font-size:7.5pt;min-width:16mm}
+.pt{border-collapse:collapse;width:100%;font-size:7.3pt;margin:.5mm 0}
+.pt th,.pt td{border:.2mm solid #777;padding:.6mm 1mm;text-align:center;white-space:nowrap;position:static;background:none;color:#000;font-weight:500}
+.pt th{background:#eee!important;font-size:7pt}.pt th.sm{font-size:6.3pt;padding:.6mm .3mm}
+.pt td.nmc{min-width:24mm;height:5.5mm;text-align:left}
+.bx{display:inline-block;min-width:8mm;height:4.6mm;border:.25mm solid #555;vertical-align:middle;text-align:center;line-height:4.4mm;background:#fff}
+.pv{color:#9a9a9a;font-weight:400}
+.cs{display:inline-flex;gap:.6mm}
+.co{display:inline-block;min-width:3.6mm;padding:0 .5mm;text-align:center;border:.25mm solid transparent;border-radius:50%;line-height:3.8mm}
+.co.on{border-color:#aaa;color:#888}
+.gcols{column-count:3;column-gap:3mm;column-fill:auto;flex:1;min-height:0}
+.gc{font-weight:700;font-size:7.3pt;background:#eee;padding:.3mm 1mm;margin-top:.6mm;break-after:avoid}
+.gr{display:grid;grid-template-columns:19mm auto 1fr;align-items:center;gap:.6mm;border-bottom:.15mm solid #ccc;padding:.25mm 0;break-inside:avoid;font-size:7.6pt}
+.gr .gn{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:7.3pt}
+.gr .lv{text-align:right;font-size:6.8pt}.gr .lv .bx{min-width:6mm;height:4mm;line-height:3.8mm}
+.gx{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.3mm 1.6mm;padding-left:2mm;font-size:6.5pt;align-items:center}
+.gx .bx{min-width:8mm;height:3.8mm;line-height:3.6mm}.gx i{font-style:normal;color:#555;font-size:6pt}
 </style>
 
+<div class="ldbar" id="ldbar" role="status" aria-live="polite">スプシから読み込み中…　しばらくお待ちください</div>
 <div class="wrap">
   <header>
-    <h1><small>獅子の如く 13鯖 同盟</small>同盟名簿 武将帳</h1>
-    <div class="conn"><span class="dot" id="dot"></span><span id="conn">共有データに接続中…</span></div>
+    <h1><small>獅子の如く 13鯖 同盟</small>覇権同盟名簿　武将帳</h1>
+    <div class="hdr-r">
+      <div class="conn"><span class="dot" id="dot"></span><span id="conn">スプシに接続中…</span></div>
+      <div class="ver"><span id="ver"></span><button type="button" id="reload">最新のデータに更新</button></div>
+    </div>
   </header>
   <nav aria-label="画面">
-    <a href="#input" data-v="input">入力</a>
-    <a href="#roster" data-v="roster">名簿</a>
-    <a href="#rally" data-v="rally">集結</a>
+    <a href="javascript:void(0)" data-v="input">入力</a>
+    <a href="javascript:void(0)" data-v="roster">名簿</a>
+    <a href="javascript:void(0)" data-v="rally">集結</a>
+    <a href="javascript:void(0)" data-v="plan">編成</a>
+    <a href="javascript:void(0)" data-v="rules">組み合わせ条件</a>
+    <a href="javascript:void(0)" data-v="skills">スキル一覧</a>
   </nav>
 
   <!-- 入力 -->
@@ -156,10 +484,11 @@ tbody tr:hover{background:var(--ai-soft)}
     <div class="panel">
       <div class="row">
         <label class="f" style="flex:1 1 220px">ユーザー名を選ぶ
-          <input id="who" list="names" placeholder="例：肥後菊池武光" autocomplete="off">
+          <span class="ac"><input id="who" placeholder="名前の一部を入れると候補が出ます" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="ac-who" aria-expanded="false"><span class="ac-list" id="ac-who" role="listbox" hidden></span></span>
         </label>
-        <datalist id="names"></datalist>
+        
         <button id="newMember" type="button">新しく追加</button>
+        <button id="printSheet" type="button" title="この人の前回値が薄く入ったA4の記入シート（2枚）を印刷します">記入シートを印刷</button>
       </div>
       <div class="kpis" id="whoInfo"></div>
     </div>
@@ -180,7 +509,7 @@ tbody tr:hover{background:var(--ai-soft)}
     <details class="blk" open>
       <summary><h2>武将</h2><span class="where">武将→詳細の覚醒タブと守護霊（左下の合計÷6）</span></summary>
       <div class="blkbody">
-        <p class="legend">― 未所持　0 覚醒なし（化楽天まで）　1 覚醒（他化自在天）　2 専属守護霊覚醒。2のときは右に守護霊Lv（6枠すべてが到達している数値）を選びます。一部の武将は下に「相克」「必要命魂」「潜能」の欄が出ます（所持していると入力できます）。相克は武将詳細のスキルや衣装の説明にある％（例：ねねは専属守護霊の合計Lv×0.8％、細川藤孝はスキルの％）。</p>
+        <p class="legend">― 未所持　0 覚醒なし（化楽天まで）　1 覚醒（他化自在天）　2 専属守護霊覚醒。2のときは右に守護霊Lv（6枠すべてが到達している数値）を選びます。一部の武将は下に「相克」「必要命魂」「潜能」の欄が出ます（所持していると入力できます）。相克の見る場所は、分かっている武将だけ欄の下に書いてあります。</p>
         <div id="genBox"></div>
       </div>
     </details>
@@ -188,6 +517,44 @@ tbody tr:hover{background:var(--ai-soft)}
     <details class="blk">
       <summary><h2>兵種</h2><span class="where">LV：厩舎・射場・兵舎の訓練の右上／上級軍略：学問所の研究→軍略（進度は初級・中級・上級のLVの合計）／具足：各施設の具足屋／軍馬：牧場の名簿</span></summary>
       <div class="blkbody"><div class="trp" id="trpBox"></div></div>
+    </details>
+
+    <details class="blk">
+      <summary><h2>相克（姫装備・庭園）</h2><span class="where">姫装備：姫武者館の育成→装備総覧の「八尺瓊勾玉」タブ（「当方○兵の敵△兵に対する有利／不利」の％）／庭園：庭園→風雅→風雅総覧→政令タブ（関東「知彼知己・克」＝有利、畿内「知彼知己・破」＝不利）。不利のマイナスは付けずに数字だけ入れます</span></summary>
+      <div class="blkbody"><div class="trp" id="skBox"></div>
+        <h3 class="rh">姫ごとの装備相克</h3>
+        <p class="legend">装備の相克は「所属軍団」の効果なので、その姫を集結に出す軍団に入れたときだけ数えます。姫を選んで追加し、その姫の装備の相克（当方○兵の有利・不利の％、マイナスは付けない）を入れてください。ここに入れた人は、上の「姫装備」の合計の代わりにこちらを使います。</p>
+        <div class="row" style="gap:6px"><select id="hsAdd" aria-label="追加する姫"></select><button type="button" id="hsAddBtn">姫を追加</button></div>
+        <div class="tblwrap"><table class="hstbl"><thead><tr><th>姫</th><th>馬 有利</th><th>馬 不利</th><th>弓 有利</th><th>弓 不利</th><th>歩 有利</th><th>歩 不利</th><th></th></tr></thead><tbody id="hsBody"></tbody></table></div>
+        <p class="legend" id="skSum"></p></div>
+    </details>
+
+    <details class="blk" id="gdBlk">
+      <summary><h2>軍団（1軍〜5軍）</h2><span class="where">集結の被り・不足はここに入れた武将で判定します。1軍団＝戦法・兵器・姫武者5人＋部隊①〜⑤（兵種・主将・先陣・軍師）</span></summary>
+      <div class="blkbody">
+        <div class="gdtabs" id="gdTabs" role="group" aria-label="軍団を選ぶ"></div>
+        <div id="gdBox"></div>
+        <datalist id="genList"></datalist><datalist id="heikiList"></datalist><datalist id="himeList"></datalist>
+      </div>
+    </details>
+
+    <details class="blk">
+      <summary><h2>具足の陣と相克</h2><span class="where">各施設の具足屋。兵種ごとに付けている陣（天・地・雲）と、具足に付いている陣の相克スキル（有利・不利の％）。天は地に、地は雲に、雲は天に有利。付けている陣と違う陣の相克は効きません。上限は1人（兵種ごと）で有利・不利それぞれ50%</span></summary>
+      <div class="blkbody"><div class="trp" id="jinBox"></div><p class="legend" id="jinWarn"></p></div>
+    </details>
+
+    <details class="blk">
+      <summary><h2>兵法・お面・神格・阿修羅スキル</h2><span class="where">兵法：軍学道場の兵法選択（極意兵法、「未獲得」でなければ所持）／お面：具足屋→面の図鑑／神格：神格名簿→昇格の〇の数（未保有は空欄）／阿修羅：稽古場→阿修羅の怒り（各兵種の3枠のスキル名）。集結内で重ねても効かない・上限があるもののチェックに使います</span></summary>
+      <div class="blkbody">
+        <h3 class="rh">極意兵法（持っている）</h3><div class="ochk" id="hhBox"></div>
+        <h3 class="rh">SSRのお面（持っている）</h3><div class="ochk" id="menBox"></div>
+        <h3 class="rh">SSR神格のLV</h3><div class="row" id="shinBox"></div>
+        <h3 class="rh">阿修羅（レベル・つけているスキル名とスキルLV）</h3>
+        <p class="legend">スキルLV：〇5つでLV5、LV6からは左から金色の〇に変わり、全部金色（MAX）でLV10。</p>
+        <div class="row"><label class="f">中心（藕糸の孔の級）<input type="number" id="as-c" min="0" style="width:5em"></label></div>
+        <div class="trp" id="asBox"></div>
+        <datalist id="asList"></datalist>
+      </div>
     </details>
 
     <details class="blk">
@@ -201,6 +568,7 @@ tbody tr:hover{background:var(--ai-soft)}
     <div class="panel">
       <div class="row">
         <label class="f" style="flex:1 1 180px">名前で探す<input id="q" placeholder="名前の一部"></label>
+        <label class="f">一族で絞る<select id="fClan"><option value="">全員</option></select></label>
         <label class="f">武将で絞る<select id="fGen"><option value="">指定なし</option></select></label>
         <label class="f">条件<select id="fMin">
           <option value="has">所持している</option>
@@ -209,39 +577,246 @@ tbody tr:hover{background:var(--ai-soft)}
         </select></label>
       </div>
       <div class="kpis" id="rosterKpi"></div>
+      <div class="row" style="justify-content:space-between;align-items:flex-end">
+        <span class="legend" id="selInfo">左のチェックで選んだ人を、まとめて削除できます。</span>
+        <label class="f" style="flex:0 1 200px">管理パスワード<input type="password" id="admPw" autocomplete="current-password" placeholder="削除・バックアップ用"></label>
+        <button type="button" id="delSel" class="danger" disabled>選んだ人を削除</button>
+        <button type="button" id="undoDel" hidden>元に戻す（Ctrl+Z）</button>
+      </div>
+      <div class="row">
+        <button type="button" id="printSel">選んだ人の記入シートを印刷</button>
+        <button type="button" id="printBlank">白紙の記入シートを印刷</button>
+        <span class="legend">A4片面・1人2枚。前回入力された値は薄い字で入ります。</span>
+      </div>
+      <div class="row" style="align-items:flex-end">
+        <label class="f" style="flex:1 1 180px">選んだ人の一族<select id="bulkClan"></select></label>
+        <button type="button" id="setClanBtn" class="pri" disabled>一族を設定</button>
+      </div>
+      <p class="legend" id="delMsg"></p>
     </div>
+    <details class="blk" id="bkBlk">
+      <summary><h2>バックアップ</h2><span class="where">スプレッドシート全体のコピーをドライブに保存（削除の前にも自動で作ります）</span></summary>
+      <div class="blkbody">
+        <div class="row">
+          <button type="button" id="bkNow">今すぐバックアップ</button>
+          <button type="button" id="bkList">最近のバックアップを見る</button>
+        </div>
+        <p class="legend" id="bkMsg">上の管理パスワードを入れてから押してください。バックアップのファイルは管理者のドライブにだけ保存されます。</p>
+        <ul class="bklist" id="bkUl"></ul>
+      </div>
+    </details>
     <div class="tblwrap"><table>
-      <thead><tr><th>ユーザー名</th><th class="n">戦力(万)</th><th class="n">集結数</th><th class="n">専属覚醒</th><th class="n">守護霊Lv計</th><th>更新</th></tr></thead>
+      <thead><tr><th class="ck"><input type="checkbox" id="selAll" aria-label="表示中の全員を選ぶ"></th><th>ユーザー名</th><th></th><th>一族</th><th class="n">戦力(万)</th><th class="n">集結数</th><th class="n">専属覚醒</th><th class="n">守護霊Lv計</th><th>更新</th></tr></thead>
       <tbody id="rosterBody"></tbody>
     </table></div>
   </section>
 
   <!-- 集結 -->
   <section class="view" id="v-rally" hidden>
-    <p class="note"><b>試作の仮ルールです。</b>集結で何が効くかの仕様が分かったら、点数の付け方を差し替えます。今は「重要武将の育成度」「兵種LV・軍略」「戦力」を重みで足し合わせています。</p>
+    <p class="note"><b>点数の付け方：</b>優先する順に「①守護霊Lvの合計」「②軍略の進度」「③相克の合計」。それぞれ名簿の中でいちばん高い人を満点として比べ、重みで足し合わせます（戦力は強さに比例しないため使いません）。点数が同じときは①→②→③の順で高い人を上にします。</p>
     <div class="panel">
       <h2>条件</h2>
       <div class="row">
-        <label class="f" style="flex:1 1 200px">集結主<input id="host" list="names" placeholder="ユーザー名"></label>
+        <label class="f" style="flex:1 1 200px">集結主<span class="ac"><input id="host" placeholder="名前の一部を入れると候補が出ます" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="ac-host" aria-expanded="false"><span class="ac-list" id="ac-host" role="listbox" hidden></span></span></label>
+        <label class="f">一族<select id="rClan"><option value="">全員</option></select></label>
         <label class="f">兵種<select id="rType"><option value="">指定なし</option><option>馬</option><option>弓</option><option>歩</option></select></label>
         <label class="f">参加人数<input type="number" id="rN" min="1" max="30" value="10"></label>
       </div>
       <div>
-        <div class="legend" style="margin-bottom:6px">重要武将（押して選ぶ・最初は「全員にお薦め」）</div>
+        <div class="row" style="margin-bottom:6px;justify-content:space-between">
+          <span class="legend">重要武将（押して選ぶ・最初は何も選ばれていません）</span>
+          <span class="row" style="gap:6px"><button type="button" id="keyAll">全武将を選ぶ</button><button type="button" id="keyNone">全部外す</button></span>
+        </div>
         <div class="chips" id="keyChips"></div>
       </div>
       <div class="weights">
-        <label class="f">重要武将の育成度 <input type="range" id="w1" min="0" max="10" value="6"></label>
-        <label class="f">兵種LV・軍略 <input type="range" id="w2" min="0" max="10" value="3"></label>
-        <label class="f">戦力 <input type="range" id="w3" min="0" max="10" value="2"></label>
+        <label class="f">①守護霊Lvの合計 <input type="range" id="w1" min="0" max="10" value="5"></label>
+        <label class="f">②軍略の進度 <input type="range" id="w2" min="0" max="10" value="3"></label>
+        <label class="f">③相克の合計 <input type="range" id="w3" min="0" max="10" value="2"></label>
+        <label class="f">重要武将の育成度 <input type="range" id="w4" min="0" max="10" value="0"></label>
       </div>
-      <div class="legend"><span class="pill">藍</span> 武将　<span class="pill new">緑</span> 兵種　<span class="pill old">朱</span> 戦力　の内訳を棒で表示</div>
+      <div class="legend">棒の色：<span class="pill">藍</span> 守護霊Lv　<span class="pill new">緑</span> 軍略　<span class="pill" style="background:var(--shu);color:#fff">朱</span> 相克　<span class="pill old">灰</span> 重要武将。兵種を選ぶと、軍略と相克はその兵種の分だけで数えます。重みの設定は「編成」タブの並び順と点数にも使われます。</div>
     </div>
     <div id="hostCard"></div>
     <div class="rank" id="rank"></div>
   </section>
+
+
+  <!-- スキル一覧 -->
+  <section class="view" id="v-skills" hidden>
+    <div class="panel">
+      <h2>武将スキル・守護霊一覧</h2>
+      <p class="legend">武将被りシートの75人（＋覇・武田信玄）について、武将図鑑のMAX表示からスキル①②と専属守護霊の2・4・6セット効果を要約しています。右上は集結に入れたい上限数（通常スキル／守護霊スキル）で、朱色は上限が8未満です。数値はMAX状態のもので、各自の育成状況とは異なります。</p>
+      <div class="sl-bar">
+        <input type="search" id="slQ" placeholder="武将名・効果で探す（例：相克、障壁、率兵）" aria-label="武将名や効果で探す" autocomplete="off">
+        <div class="sl-chips" role="group" aria-label="守護霊の兵種で絞り込む">
+          <button type="button" class="sl-chip" data-tr="" aria-pressed="true">すべて</button>
+          <button type="button" class="sl-chip" data-tr="馬" aria-pressed="false">馬</button>
+          <button type="button" class="sl-chip" data-tr="弓" aria-pressed="false">弓</button>
+          <button type="button" class="sl-chip" data-tr="歩" aria-pressed="false">歩</button>
+          <button type="button" class="sl-chip" data-tr="全" aria-pressed="false">全兵種</button>
+        </div>
+        <label class="sl-tog"><input type="checkbox" id="slLo">上限8未満だけ</label>
+        <label class="sl-tog"><input type="checkbox" id="slNg">重ねがけ不可を含む</label>
+        <span class="sl-count" id="slCount"></span>
+      </div>
+    </div>
+    <div class="sl-grid" id="slGrid"></div>
+  </section>
+
+  <!-- 閲覧 -->
+  <section class="view" id="v-view" hidden>
+    <div class="panel pvbar">
+      <label class="f" style="flex:0 1 220px">一族<select id="pvClan"></select></label>
+      <label class="f" style="flex:1 1 220px">名前で探す<span class="ac"><input id="pvq" placeholder="名前の一部を入れると候補が出ます" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="ac-pvq" aria-expanded="false"><span class="ac-list" id="ac-pvq" role="listbox" hidden></span></span></label>
+      <label class="f" style="flex-direction:row;align-items:center;gap:8px;font-size:14px;color:var(--ink)"><input type="checkbox" id="pvAll" style="width:20px;height:20px">持っていない武将も表示</label>
+    </div>
+    <div class="pvnav">
+      <button type="button" id="pvPrev" aria-label="前の人">‹ 前</button>
+      <span id="pvPos" aria-live="polite">― / ―</span>
+      <button type="button" id="pvNext" aria-label="次の人">次 ›</button>
+    </div>
+    <div class="pvstage" id="pvStage"><article class="pvcard" id="pvCard"></article></div>
+    <p class="legend" style="text-align:center">左右にスワイプ、または「前」「次」ボタン・← → キーで、一族のメンバーを1人ずつ見られます。</p>
+  </section>
+
+  <!-- 集結の組み合わせ条件 -->
+  <section class="view" id="v-rules" hidden>
+    <div class="panel">
+      <h2>集結の組み合わせ条件</h2>
+      <p class="legend">「編成」タブの各集結は、ここに書いた基準で自動チェックしています。上限は「絶対にダメ」ではなく、<b>集結内に欲しい数</b>です。超えたものは「被り」、足りないものは「足りない（あと〇人）」、ちょうどのものは「欲しい数どおり」として出ます。基準は同盟名簿スプシの「武将被り」シートの数字です。</p>
+    </div>
+    <div class="rules2">
+      <div class="panel">
+        <span class="k">通常スキル</span>
+        <p><b>数えるもの：</b>集結に出す<b>軍団</b>のうち、その武将が入っている軍団の数（集結は最大8軍団。2人なら4軍団＋4軍団、3人なら3＋3＋2などでもOK）。軍団が未入力の人は、持っている武将全部で数えます（「推定」と表示）。</p>
+        <p><b>見かた：</b>上限までは入っているほどよく、上限を<b>超えた分</b>が被りです。</p>
+      </div>
+      <div class="panel">
+        <span class="k g">守護霊スキル</span>
+        <p><b>数えるもの：</b>集結に出す軍団に入っている武将のうち、その人が<b>専属守護霊覚醒（2）</b>にしている武将の数（軍団単位）。</p>
+        <p><b>見かた：</b>上限までは入っているほどよく、上限を<b>超えた分</b>が被りです（スプシの判定と同じく「上限以下ならOK」）。</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h3 class="rh">武将スキル・守護霊以外のチェック（「その他」）</h3>
+      <ul class="legend" style="margin:0;padding-left:1.2em;line-height:1.7">
+        <li><b>相克</b>：集結に入れた全員の相克（武将スキル・守護霊・姫装備・庭園、殲滅チームシートと同じ式）を兵種ごとに有利・不利で合計し、<b>参考</b>として表示します。集結の相克上限<b>80%</b>は、敵の相克と相殺した<b>後</b>に効く上限です。敵も相克を積んでくるので、80%を超えても無駄にはならず、<b>積めるだけ積んだ方が有利</b>です（そのため判定・警告はしません）。姫装備は「所属軍団」の効果なので、姫ごとの装備相克を入れた人は、集結に出す軍団に入れた姫の分だけを数えます（未入力の人は姫装備の合計で数えます）。</li>
+        <li><b>具足相克</b>：集結での上限はありません。各人の兵種ごとの具足で、付けている陣と同じ陣の相克が有利・不利それぞれ<b>50%</b>（個人の上限）を超えたら「超えた分は無駄」、届かなければ「あと〇%」（不足）と出します。集結に出す軍団の兵種の分だけ見ます。付けている陣と違う陣の相克は効かないので、入っていれば注意を出します。</li>
+        <li><b>兵法</b>：同じ極意兵法を持っている人が2人以上いると出します（重ねがけ不可で、効くのは最も大きい1人分）。</li>
+        <li><b>お面</b>：同じSSRのお面を持っている人が2人以上（お面スキルは重ねがけ不可）。</li>
+        <li><b>神格</b>：同じ神格を持っている人が2人以上（同名神格は効果の上限を共有）。</li>
+        <li><b>戦法</b>：集結に出す軍団で同じ戦法が2つ以上（騎馬鉄砲の貫通ダメージ+40%まで、釣り野伏のダメージ+20%まで などの上限あり）。</li>
+        <li><b>阿修羅スキル</b>：同じスキル名をつけている人が2人以上（移花接木・厄憑は最大30% など上限を共有）。</li>
+        <li>兵法・お面・神格は「持っている」で数えるため、実際につけていない人も含みます。名前に指を置くと誰が持っているか出ます。</li>
+        <li>兵器の激励技・攻略技、姫装備の相克以外の効果は、重ねたときの扱いを確認できていないため判定していません。</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3 class="rh">2人まとめて数える組み合わせ</h3>
+      <div id="rulePairs"></div>
+    </div>
+    <div class="panel">
+      <h3 class="rh">判定のきまり</h3>
+      <ul class="rlist">
+        <li>上限が<b>8</b>の武将は被りにはなりません。欲しい数は8人なので、足りない分は「全員に欲しい武将（上限8）」の中に表示します（最初は閉じています）。</li>
+        <li>欲しい数は、上限と「1組の上限（軍団の数）」の小さいほうです。</li>
+        <li>足りない数は、組の誰かが持っている武将だけに出します。組の誰も持っていない武将は、集結ごとの「条件」で指定すると候補を探せます。</li>
+        <li><b>自動で割り振る</b>：点数の高い人から順に、「上限内で活かせる項目が増え、被りが増えない組」に入れます。人数と平均点もならします。</li>
+        <li><b>被りが減るように入れ替える</b>：集結主は動かさず、参加者どうしを入れ替えて「上限内で活かせた数 − 被り×3」が大きくなるようにします。</li>
+        <li>上限が<b>0</b>の武将（福島正則、SP織田信長の守護霊）は、「持っているだけ」で全員が被りになってしまうため、判定から外しています。</li>
+        <li>上限が<b>空欄</b>の武将（伊達成実の通常スキル）は判定しません。</li>
+        <li>「寿桂尼」はシートに2行あるため、1行目（通常2・守護霊2）を使っています。</li>
+        <li>名簿アプリに入力欄がない武将は判定できません：<span id="ruleMissing"></span></li>
+        <li>名簿は「持っているか」までしか分からないため、実際に集結へ連れていく武将とは違うことがあります。被りが出たら、その人に連れていく武将・守護霊を確認してください。</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3 class="rh">集結ごとの条件（編成タブの「条件 ▽」）</h3>
+      <ul class="rlist">
+        <li>組ごとに条件を何個でも付けられます。どれも「〇〇以上」で判定します。</li>
+        <li>選べる項目：戦力・集結数／兵種（LV・上級軍略・進度・具足SR・具足SSR・軍馬LV20）／武将（持っている＝通常スキル、覚醒、専属守護霊覚醒＝守護霊、専属守護霊Lv、相克・必要命魂・潜能）／SP武将（主義・副将任命）／加速アイテム。</li>
+        <li>条件をすべてクリアした人を、まだ組に入っていない人から表示します。いなければ、クリアした条件の数が多い順、足りない分が少ない順に「条件に近い人」を出し、何が足りないかも表示します。</li>
+        <li>組に入っている人の横の「2/3」は、その人がクリアしている条件の数です。</li>
+        <li>自動の割り振りと入れ替えでも、条件に合う人ほどその組に入りやすくなります。</li>
+        <li>衣装・姫などは、いまの名簿アプリに入力欄がないため条件にできません。</li>
+      </ul>
+    </div>
+    <div class="row">
+      <label class="f" style="flex:1 1 200px">武将名で探す<input id="ruleQ" placeholder="例：真田" autocomplete="off"></label>
+      <label class="f" style="flex-direction:row;align-items:center;gap:8px;font-size:15px;color:var(--ink)"><input type="checkbox" id="ruleOnly" checked style="width:22px;height:22px">上限が8未満の武将だけ</label>
+    </div>
+    <div class="tblwrap"><table>
+      <thead><tr><th>武将</th><th class="n">通常スキル</th><th class="n">守護霊スキル</th><th>メモ</th></tr></thead>
+      <tbody id="ruleBody"></tbody>
+    </table></div>
+  </section>
+
+  <!-- 編成 -->
+  <section class="view" id="v-plan" hidden>
+    <div class="panel">
+      <div class="row">
+        <label class="f" style="flex:1 1 180px">一族<select id="pClan"></select></label>
+        <div class="kpis" id="pClanKpi"></div>
+      </div>
+    </div>
+
+    <details class="blk" id="rosterBlk">
+      <summary><h2>一族メンバー表</h2><span class="where">一族に入っている人を最大50人まで登録し、決まったら「確定」</span></summary>
+      <div class="blkbody">
+        <div class="row" id="rosterAddRow">
+          <label class="f" style="flex:1 1 220px">メンバーを追加<span class="ac"><input id="radd" placeholder="名前の一部を入れると候補が出ます" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="ac-radd" aria-expanded="false"><span class="ac-list" id="ac-radd" role="listbox" hidden></span></span></label>
+        </div>
+        <div class="chips" id="rosterChips"></div>
+        <div class="row" style="justify-content:space-between">
+          <label class="f" style="flex-direction:row;align-items:center;gap:8px;font-size:15px;color:var(--ink)"><input type="checkbox" id="rConfirm" style="width:22px;height:22px">このメンバーで確定する</label>
+          <button class="pri" type="button" id="rSave">メンバー表を保存</button>
+        </div>
+        <p class="legend" id="rMsg"></p>
+      </div>
+    </details>
+
+    <div class="panel">
+      <h2>集結の編成</h2>
+      <div class="row">
+        <label class="f" style="flex:1 1 180px">編成を選ぶ<select id="pSel"></select></label>
+        <label class="f" style="flex:1 1 180px">編成の名前<input id="pName" placeholder="例：三方 第5試合"></label>
+      </div>
+      <div class="row">
+        <label class="f">兵種<select id="pType"><option value="">指定なし</option><option>馬</option><option>弓</option><option>歩</option></select></label>
+        <label class="f">1組の上限（軍団の数）<select id="pSize"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option selected>8</option></select></label>
+      </div>
+      <p class="legend">候補は点数の高い順に並びます（①守護霊Lv合計 ②軍略の進度 ③相克の合計。重みは「集結」タブで変えられます）。同じ人は2つの組に入れません。武将被りの判定基準は「組み合わせ条件」タブで見られます。</p>
+      <div class="row">
+        <button type="button" id="pAuto">空いている枠に自動で割り振る</button>
+        <button type="button" id="pOpt">被り・条件がよくなるように入れ替える</button>
+        <button type="button" id="pClear">全員を外す</button>
+        <button type="button" id="pUndo">1つ戻す（Ctrl+Z）</button>
+        <button type="button" id="pAdd">集結を1組追加</button>
+      </div>
+    </div>
+
+    <div class="kpis" id="pKpi"></div>
+    <div class="rallies" id="pRallies"></div>
+
+    <div class="panel">
+      <h2>まだ組に入っていない人</h2>
+      <div class="chips" id="pPool"></div>
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <button class="pri" type="button" id="pSave">編成を保存</button>
+        <button type="button" id="pCopy">Discord用にコピー</button>
+        <button type="button" id="pDel">この編成を削除</button>
+      </div>
+      <p class="legend" id="pMsg"></p>
+      <textarea id="pText" rows="8" readonly hidden style="width:100%;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--sheet);color:var(--ink)"></textarea>
+    </div>
+  </section>
 </div>
 
+<div id="printArea"></div>
 <div class="savebar" id="savebar">
   <div class="in">
     <span class="status" id="status">ユーザー名を選ぶと、前回の値が入った状態で開きます。</span>
@@ -249,10 +824,42 @@ tbody tr:hover{background:var(--ai-soft)}
   </div>
 </div>
 
+<div id="gpk" class="gpk" hidden role="dialog" aria-modal="true" aria-labelledby="gpkT">
+  <div class="gpk-box">
+    <div class="gpk-h"><b id="gpkT">武将を選ぶ</b><button type="button" id="gpkX" class="x" aria-label="閉じる">×</button></div>
+    <div class="gpk-tools"><input id="gpkQ" placeholder="名前で絞る" autocomplete="off" aria-label="名前で絞る">
+      <span class="gpk-f" id="gpkF" role="group" aria-label="育成段階で絞る"><button type="button" data-f="" aria-pressed="true">全部</button><button type="button" data-f="2">専属</button><button type="button" data-f="1">覚醒</button><button type="button" data-f="0">所持</button></span></div>
+    <div class="gpk-list" id="gpkList"></div>
+    <div class="gpk-foot"><button type="button" id="gpkClear">この枠を空にする</button></div>
+  </div>
+</div>
+<script>
+/* 画面の準備で止まったときに、原因を画面に出す（本体より先に読み込む） */
+document.documentElement.classList.add("ld-busy");
+/** 読み込みの状態表示：busy（赤）／ok（緑→数秒で通常）／err（赤のまま） */
+var ldTimer=null;
+function setLd(state,msg){var h=document.documentElement,b=document.getElementById("ldbar");clearTimeout(ldTimer);
+  h.classList.remove("ld-busy","ld-ok","ld-err");if(state)h.classList.add("ld-"+state);if(b&&msg)b.textContent=msg;
+  if(state==="ok")ldTimer=setTimeout(function(){h.classList.remove("ld-ok")},4000)}
+(function(){
+  function show(msg){var c=document.getElementById("conn");if(c&&/接続中|読み込み中/.test(c.textContent)){setLd("err",msg);c.textContent=msg;c.style.color="#b5432c";c.style.fontWeight="700"}}
+  window.addEventListener("error",function(ev){show("エラー："+(ev.message||"不明")+(ev.lineno?"（"+ev.lineno+"行目）":"")+"　この文章を管理者に送ってください")});
+  window.addEventListener("unhandledrejection",function(ev){show("エラー："+((ev.reason&&ev.reason.message)||ev.reason||"不明"))});
+  setTimeout(function(){show("スプシから応答がありません。「最新のデータに更新」を押すか、ページを開き直してください")},20000);
+})();
+</script>
 <script>
 const GENS=[["越境戦おすすめ",[["北条早雲",1],["織田信長",1],["鈴木重秀",1],["本多忠勝",1],["山本勘助",1],["島津家久",1],["堀秀政",1],["鍋島直茂",1],["寿桂尼",1],["直江兼続",1],["真田幸隆",1]]],["全員にお薦め",[["宇喜多直家",1],["上泉信綱",1],["徳川家康",1],["ガラシャ",1],["黒田官兵衛",1],["村井貞勝",1],["石田三成",1],["三浦按針",1],["上杉謙信",1],["真田幸村",1],["井伊直虎",1],["豊臣秀吉",1],["細川藤孝",1],["池田恒興",1]]],["相克",[["伊達政宗",1],["甲斐姫",1],["ねね",1],["斎藤利三",1],["赤井直正",1],["柳生宗厳",1],["伊達成実",1]]],["主要武将",[["櫛橋光",1],["宮本武蔵",1],["尼子経久",1],["立花宗茂",1],["神谷薫",1],["緋村剣心",1],["井伊直政",1],["森長可",1],["加藤清正",1],["果心居士",1],["藤堂高虎",1],["榊原康政",1],["本願寺顕如",1],["上杉景勝",1]]],["新武将",[["織田信忠",1],["佐々成政",1],["愛姫",1],["千利休",1],["島津歳久",1],["福島正則",1],["天草四郎",1],["おつやの方",1],["名古屋山三郎",1],["加藤嘉明",1],["太田道灌",1],["吉川広家",1],["足利義昭",1],["真柄直隆",1],["加藤段蔵",1],["山内一豊",1],["竹林院",1],["仙石秀久",1],["覇・武田信玄",1],["小島弥太郎",1],["略・小早川隆景",1],["毛利輝元",1],["姫・お市",1],["黒田長政",1],["蜂須賀小六",1]]],["旅籠屋武将",[["北条氏康",1],["太原雪斎",1],["蒲生氏郷",1],["竹中半兵衛",1],["毛利元就",1]]],["馬武将",[["武田信玄",1],["北条氏綱",1],["山中鹿之助",1],["高坂昌信",1],["山県昌景",1],["義姫",1],["真田信之",1],["綾御前",1],["柿崎景家",1]]],["歩武将",[["淀殿",1],["小早川隆景",1],["細川忠興",1],["武田信繁",1],["三好長慶",1],["千代",1],["北条綱成",1],["高橋紹運",1],["ﾘｳﾞｧｲ",0]]],["弓武将",[["出雲阿国",1],["伊達稙宗",1],["春日局",1],["秋山信友",1]]],["お薦め地魂武将",[["濃姫",1],["津軽為信",1],["島左近",1],["大谷吉継",1],["前田慶次",1],["伊東一刀斎",1],["伊達輝宗",1],["太田牛一",1],["長野業正",1],["土居清良",1],["村松殿",1]]],["内政系",[["最上義光",1],["南渓瑞聞",1],["松永久秀",1],["今川義元",1],["松平信綱",1]]]];
 const SP=["SP織田信長","SP豊臣秀吉","SP徳川家康","SP濃姫","SP上杉謙信","SP黒田官兵衛"];
 const EXTRA={"北条早雲":["馬相克","弓相克","歩相克"],"織田信長":["必要命魂","馬相克","弓相克","歩相克"],"本多忠勝":["必要命魂"],"山本勘助":["必要命魂"],"三浦按針":["潜能"],"真田幸村":["馬相克","弓相克","歩相克"],"井伊直虎":["馬相克","弓相克","歩相克"],"豊臣秀吉":["馬相克","弓相克","歩相克"],"細川藤孝":["相克"],"池田恒興":["相克"],"伊達政宗":["相克"],"甲斐姫":["相克"],"ねね":["相克"],"斎藤利三":["相克"],"赤井直正":["相克"],"柳生宗厳":["馬相克","弓相克","歩相克"],"伊達成実":["相克"],"森長可":["潜能"],"加藤清正":["潜能"],"果心居士":["潜能"],"上杉景勝":["潜能"],"覇・武田信玄":["潜能"],"略・小早川隆景":["潜能"],"北条氏康":["必要命魂"],"太原雪斎":["必要命魂"],"蒲生氏郷":["必要命魂"],"竹中半兵衛":["必要命魂"],"毛利元就":["必要命魂"],"真田信之":["潜能"]};
+const APP_VERSION="スプシ版 48（2026-11-02・記入シート印刷）";
+const XHINT={"ねね":"相克：衣装スキル「恋歌」の説明「専属守護霊の合計レベル×0.8％」の値","細川藤孝":"相克：スキルの説明にある％","北条早雲":"相克：守護霊の6セット効果の％。馬・弓・歩は使う兵種の欄に入れる","織田信長":"相克：守護霊の6セット効果の％。馬・弓・歩は使う兵種の欄に入れる","井伊直虎":"相克：守護霊の6セット効果の％。馬・弓・歩は使う兵種の欄に入れる","豊臣秀吉":"相克：守護霊の6セット効果の％。馬・弓・歩は使う兵種の欄に入れる","柳生宗厳":"相克：武将スキルの説明にある「現在」の％。馬・弓・歩は使う兵種の欄に入れる","伊達成実":"相克：守護霊の6セット効果の％","斎藤利三":"相克：守護霊の6セット効果の％","真田幸村":"相克：武将スキルの説明にある「現在」の％。馬・弓・歩は使う兵種の欄に入れる","池田恒興":"相克：武将スキルの説明にある「現在」の％","赤井直正":"相克：武将スキルの説明にある「現在」の％","伊達政宗":"相克：武将スキルの説明にある「現在」の％","甲斐姫":"相克：武将スキルの説明にある「現在」の％"};
+const JIN=["天","地","雲"], JIN_CAP=50;   // 具足の相克：個人（兵種ごとの具足）の上限。有利・不利それぞれ50%。集結の上限はなし
+const HIME_ALL=["紫陽姫","狐尾蘭","桔梗","鬼百合","椿","明石","曼荼羅","虞美人","胡蝶","鳶尾","藤裏葉","笹の葉","花散里","山吹","菖蒲","待宵","白梅","朧月夜","優曇華","宝相","海棠","玉芙蓉","迷送香","彼岸花","石竹","凌霄","香蒲","薔薇","桃夭","水仙","サフラン","芍薬","蒔蘿","牡丹","萩","鈴蘭","雪光","夕顔","朝顔","舞鶴","合歓","龍牙","天星","竜胆","十菜","八重桜"];
+const HEIHO=["紅葉の打ち","磐岩の打ち","獅子の洞入り","天狗抄","居合切り"];
+const MEN=["鬼王の面","般若の面","霊棘の面","金麒麟の面","金猴の面","玄狐神使"];
+const SHIN=["天照大神","須佐之男","稲荷神","迦具土神","安倍晴明","大国主神","八幡神","建御雷神","イザナギ","イザナミ","経津主神","月夜見尊","建御名方"];
+const AS_KNOWN=["厄憑・騎","移花接木・騎","攻守転換・騎","風助火勢・騎","守攻転換・騎","稲田巡礼・歩","血戦・歩"];
 const ITEMS=[["heal2h","治療 2時間"],["heal1h","治療 1時間"],["heal6m","治療 6分"],["march10","行軍 10%"],["march20","行軍 20%"],["sortie10","出征 10%"],["sortie20","出征 20%"]];
 const TROOPS=["馬","弓","歩"];
 const ALLGEN=GENS.flatMap(([c,l])=>l.map(([n,s])=>({n,c,s})));
@@ -260,15 +867,39 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
 
-let db=null, members={}, curId=null, draft=null, dirty=false, canWrite=true;
+let members={}, curId=null, draft=null, dirty=false, canWrite=true;
 
 /* ---------- routing ---------- */
-function route(){const v=(location.hash||"#input").slice(1);const ok=["input","roster","rally"].includes(v)?v:"input";
-  for(const x of ["input","roster","rally"]) $("v-"+x).hidden=x!==ok;
+let curView="input";
+document.addEventListener("keydown",e=>{if(!(e.ctrlKey||e.metaKey)||e.shiftKey||e.altKey||e.key.toLowerCase()!=="z")return;
+  const t=e.target;if(t&&(t.tagName==="TEXTAREA"||(t.tagName==="INPUT"&&!/^(checkbox|radio|button)$/.test(t.type))||t.isContentEditable))return;
+  let done=false;if(curView==="plan")done=undoPlan();else if(curView==="roster")done=undoLastDelete();
+  if(done)e.preventDefault()});
+/* ---------- スキル一覧（武将図鑑のMAX表示から要約） ---------- */
+const SKILLS=[{"n": "北条早雲", "note": "", "tr": "全", "s1": {"n": "雲蒸竜変", "t": "主将時、自身の基礎率兵数+30%"}, "s2": {"n": "五代の礎", "t": "戦闘時、敵の与ダメ-5%を当方の与ダメに変換（集結時は重ねがけ不可・一番高い1つだけ有効、変換は元の与ダメの10%まで）"}, "g2": "部隊の攻撃+6%", "g4": "部隊の防御+6%", "g6": "軍団の相克の不利-12%（集結時の同類上限80%）、敵領主が1名多いごとに追加30%減少（上限80%）", "ln": 1, "lg": 8}, {"n": "織田信長", "note": "", "tr": "弓", "s1": {"n": "指揮", "t": "主将時、自身の基礎率兵数+20%"}, "s2": {"n": "無双・弓", "t": "軍団の弓兵の攻撃力+10%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "軍団の相克の有利+12%、敵領主が1名多いごとに追加+30%（集結時重ねがけ可・他スキルとの共通上限80%）", "ln": 8, "lg": 8}, {"n": "鈴木重秀", "note": "", "tr": "弓", "s1": {"n": "雑賀孫一", "t": "部隊が弓兵のとき「部隊確保」＝参戦兵士数が初期の5%を下回らない（最初の3回の交戦のみ／集結時は重ねがけ不可・最大の1つだけ有効）"}, "s2": {"n": "鉄砲陣", "t": "毎交戦前30%で発動、兵士の防御力+6%（戦闘終了まで累積・重ねがけ可、1交戦最大+15%・上限150点、1戦闘最大+45%・上限500点）。覚醒1段ごとに発動率+5%（集結時は確率が最大のものだけ有効）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "弓兵部隊で交戦後の残り兵士が70%未満なら、集結の初期兵士数の24%分の弓兵を追加参戦（集結時の最大追加30%、1戦闘1回）", "ln": 1, "lg": 2}, {"n": "毛利元就", "note": "", "tr": "弓", "s1": {"n": "易占", "t": "使用中の秘策の有効時間+20%"}, "s2": {"n": "無双・弓", "t": "軍団の弓兵の攻撃力+10%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "敵領主と戦闘時、抵抗+（既存抵抗の）12%×（敵領主数−当方領主数+1）。集結時は重ねても最大50%。領主数が少なくても、集結内の同じ守護霊効果の最高値を下回らない", "ln": 8, "lg": 8}, {"n": "本多忠勝", "note": "", "tr": "馬", "s1": {"n": "無双・騎", "t": "軍団の騎兵攻撃力+10%"}, "s2": {"n": "絶体・騎", "t": "軍団の騎兵防御力+10%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "敵領主と戦闘時、ダメージ+12%×（敵領主数−当方領主数+1）（当方が多いときは0+1で計算）。集結時は重ねがけ不可・集結内で最も高い1つだけ、最大+100%", "ln": 8, "lg": 1}, {"n": "島津家久", "note": "", "tr": "弓", "s1": {"n": "釣り野伏せ", "t": "戦闘時、敵兵の5%を負傷させ参戦させない（敵プレイヤーのみ、負傷兵は戦闘後も回復しない。重ねたときの上限は当方か敵集結軍団の総兵力の10%の少ない方）"}, "s2": {"n": "制覇", "t": "軍団の弓兵の攻撃力+15%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "当方の実際の参戦兵士が敵より多いとき貫通+（既存の）36%、そうでなければ障壁+24%（上昇は既存値の50%まで）", "ln": 8, "lg": 2}, {"n": "堀秀政", "note": "", "tr": "歩", "s1": {"n": "名人久太郎", "t": "軍団の戦闘時、兵士の障壁+8%、損害兵力に応じてさらに上昇（追加障壁＝損害の割合×障壁×10%。集結時は重ねがけで最大1,000,000点、小早川隆景の補佐の上限と共通）"}, "s2": {"n": "文武両道", "t": "軍団の通常/強化歩兵の防御力+10%、特殊/強化特殊歩兵はさらに+10%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "障壁が貫通以外のダメージを受けたとき、受けたダメージの24%を敵に追加ダメージ（ダメージ減少の影響を受けず敵兵を撃滅。重ねがけ不可で最大の1つだけ有効。このスキルでの撃滅は敵の参戦兵数の7%まで、追加ダメージは自軍の元ダメージの30%まで）", "ln": 2, "lg": 1}, {"n": "小早川隆景", "note": "", "tr": "歩", "s1": {"n": "補佐", "t": "軍団の戦闘時、兵士の障壁+10%（集結時は重ねがけで最大1,000,000点、堀秀政と共通）"}, "s2": {"n": "思慮", "t": "軍団の歩兵の防御力+15%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、抵抗が上昇（歩兵の割合×36%×既存抵抗。重ねても基礎抵抗の40%まで）", "ln": 2, "lg": 2}, {"n": "宇喜多直家", "note": "", "tr": "全", "s1": {"n": "暗殺", "t": "戦闘時、敵兵の負傷減少率-5%（敵領主のみ、集結時は重ねがけで最大30%）"}, "s2": {"n": "明善寺崩れ", "t": "軍団の兵士の障壁+40%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、当方の武将・守護霊スキルの補正効果+12%、敵から受けるマイナス効果-12%（集結時は重ねがけで最大20%）", "ln": 6, "lg": 2}, {"n": "上泉信綱", "note": "", "tr": "歩", "s1": {"n": "新陰流", "t": "戦闘時、武勇の差で兵士の攻撃が上昇（上昇率＝（上泉信綱の武勇−敵のランダム先陣武将の武勇）×10%、集結時は重ねがけ可、兵士1名あたり最小+100・最大+300）"}, "s2": {"n": "天下一", "t": "所属集結の全歩兵の速撃+10%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "自身の武勇+3。戦闘時、敵の先陣武将と順に対峙し、武勇が低い敵先陣武将1名につき与ダメージ+4.8%（集結時最大30%）", "ln": 8, "lg": 2}, {"n": "黒田官兵衛", "note": "", "tr": "全", "s1": {"n": "如水軒", "t": "軍団の兵士の抵抗+10%。戦闘勝利時、40%の確率で敵負傷兵の30%を壊滅（敵領主のみ、集結時は重ねがけ不可・確率が最も高い1つだけ）"}, "s2": {"n": "兵糧攻め", "t": "軍団の戦闘時、兵士の負傷減少率+10%（最大20%、同類効果の共通上限50%）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "軍団の戦闘時、部隊の兵士数の120%を複製して参戦（武将スキルは複製されない、最大で軍団兵士数の25%）", "ln": 8, "lg": 8}, {"n": "村井貞勝", "note": "", "tr": "全", "s1": {"n": "都の総督", "t": "戦闘終了後、軍団の負傷兵を自動で治療（治療数は軍団の初期兵士数の30%）"}, "s2": {"n": "調停", "t": "軍団の兵士の抵抗+10%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、抵抗が上昇（現在の御殿レベル×0.96%×既存抵抗、集結時は重ねがけしても最大40%）", "ln": 8, "lg": 2}, {"n": "真田幸村", "note": "", "tr": "全", "s1": {"n": "日本一の兵", "t": "軍団の戦闘時、全兵種の相克の有利を上げ不利を下げる（現在20%、集結時は最大80%）"}, "s2": {"n": "真田丸", "t": "軍団の全兵士の防御力+10%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "軍団の戦闘時、敵兵士の既存貫通の12%を当方の貫通に変換（最大で敵の既存貫通の30%）", "ln": 8, "lg": 8}, {"n": "井伊直虎", "note": "", "tr": "歩", "s1": {"n": "指揮", "t": "主将時、自身の基礎率兵数+20%"}, "s2": {"n": "鉄壁〈特〉・歩", "t": "部隊の歩兵の防御+30%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "軍団の戦闘時、全兵種の相克の有利+30%（複数名の集結では平均値、同類効果の共通上限80%）", "ln": 8, "lg": 8}, {"n": "豊臣秀吉", "note": "", "tr": "全", "s1": {"n": "太閤", "t": "軍団の全先陣・軍師武将の能力値（武勇/智略）による兵士補正を上げる（上昇は元の30%）"}, "s2": {"n": "刀狩令", "t": "戦闘時、敵兵の防御力の5%を当方兵士の攻撃力に転換（集結時は累積で30%まで、敵兵1名あたり最大50点減少・当方1名あたり最大50%増加）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "軍団の戦闘時、全兵種の相克の不利-30%（複数名の集結では平均値、同類効果の共通上限80%）", "ln": 8, "lg": 8}, {"n": "伊達政宗", "note": "", "tr": "馬", "s1": {"n": "鉄騎", "t": "軍団の戦闘時、当方騎兵の敵歩兵に対する相克の不利-40%（集結時、同類効果の共通上限80%）"}, "s2": {"n": "独眼竜", "t": "軍団の騎兵攻撃力+15%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、兵士の速撃+（既存の）24%（集結時は重ねがけしても最大40%）", "ln": 8, "lg": 2}, {"n": "甲斐姫", "note": "", "tr": "馬", "s1": {"n": "東国の戦華", "t": "軍団の戦闘時、当方騎兵の敵弓兵に対する相克の有利+40%（集結時、同類効果の共通上限80%）"}, "s2": {"n": "武芸優長", "t": "軍団の騎兵攻撃力+15%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、速撃が上昇（騎兵の比率×36%、集結時は重ねても元の速撃から最大40%）", "ln": 8, "lg": 2}, {"n": "SP織田信長", "note": "", "tr": "全", "s1": {"n": "天魔転生", "t": "異常状態の影響を受けない（五大能力は変わらず、無効・低下も起きない）。出陣時、敵からのダメージ-10%（集結時は重ねがけ可、最大20%）。戦闘前にランダムな敵武将3名から、各自の最も高い五大能力の10%を奪い自分の同じ能力に変換（集結時は重ねがけ不可・最大の1つだけ、同じ能力は1回だけ）"}, "s2": {"n": "王者支配", "t": "戦闘前、ランダムな敵武将1名と五大能力を比べ、勝る能力1つごとに戦闘属性（速撃/抵抗/貫通/槍突/基礎相克のいずれか）が10%上昇（乗算、集結時は重ねがけ可・最大15%）"}, "g2": "", "g4": "", "g6": "", "ln": 2, "lg": 0}, {"n": "斎藤利三", "note": "", "tr": "弓", "s1": {"n": "軽蔑", "t": "戦闘時80%の確率で、智略が斎藤利三より低い敵軍師武将（最大2名）の智略補正を無効化（その軍師の智略が0扱い、部隊の智略による兵士能力補正が0）"}, "s2": {"n": "雨注", "t": "軍団の弓兵の攻撃力+15%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "軍団の戦闘時、当方弓兵の敵騎兵に対する相克の不利-48%（集結時、同類効果の共通上限80%）", "ln": 8, "lg": 8}, {"n": "赤井直正", "note": "", "tr": "弓", "s1": {"n": "悪右衛門", "t": "軍団の戦闘時、当方弓兵の敵歩兵に対する相克の有利+40%（集結時、同類効果の共通上限80%）"}, "s2": {"n": "丹波の赤鬼", "t": "軍団の弓兵の攻撃力+15%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "所属集結の全弓兵の速撃+18%", "ln": 8, "lg": 8}, {"n": "櫛橋光", "note": "", "tr": "全", "s1": {"n": "照福", "t": "軍団の死亡率-10%"}, "s2": {"n": "蠱惑", "t": "戦闘時、敵軍団の5%の兵士をその戦闘に参加させない（敵プレイヤーのみ、複数スキルの累計で上限10%）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "軍団の戦闘時、与ダメージ+（敵の不参戦兵士数×120%）（櫛橋光の蠱惑や島津家久の釣り野伏せで不参戦になった兵士数分。元のダメージから最大+20%）", "ln": 8, "lg": 2}, {"n": "直江兼続", "note": "", "tr": "馬", "s1": {"n": "直江状", "t": "軍団の戦闘時、敵兵士の攻撃力の5%を自軍の攻撃力に転換（集結は累積30%まで、敵1名あたり最大-50、自軍1名あたり最大+50%）"}, "s2": {"n": "亀甲", "t": "軍団の騎兵防御+15%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、被ダメージの12%を跳ね返す（集結時は重ねがけ可・最大30%、跳ね返しは自軍与ダメージの30%まで、自分の被ダメは減らない）", "ln": 6, "lg": 3}, {"n": "宮本武蔵", "note": "", "tr": "歩", "s1": {"n": "二刀流", "t": "戦闘時、敵兵士の防御-10%（集結は重ねがけでも最大-50%、1名あたり最大-100点、夢想剣と減少上限を共有）"}, "s2": {"n": "五輪書", "t": "軍団の通常/強化歩兵の攻撃+10%（特殊歩兵/強化特殊歩兵ならさらに+10%）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "軍団の戦闘時、自軍兵士の抵抗+（既存抵抗の）24%（集結は重ねがけ可・上昇率最大40%）", "ln": 5, "lg": 2}, {"n": "尼子経久", "note": "", "tr": "全", "s1": {"n": "雲州の狼", "t": "軍団の戦闘時、敵の参戦兵士が自軍より1%多いごとに自軍の抵抗が上昇（既存抵抗×0.4%、集結は重ねても最小5%・最大15%）"}, "s2": {"n": "謀聖", "t": "軍団の全兵士の防御+15%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "敵の砦主と戦闘時、敵の各軍団で兵力が最も多い部隊の42%に罠（戦闘不参加。勝利時はその兵を全員負傷させ、敗北時は負傷させない。重ねがけ上限50%）", "ln": 3, "lg": 2}, {"n": "立花宗茂", "note": "", "tr": "全", "s1": {"n": "松陰霊神", "t": "戦闘時、敵の最終被ダメージの10%を追加ダメージとして与える（ダメージ減少の影響なし。重ねがけ不可で最も高い効果のみ。このスキルでの撃滅は敵の参戦兵数の5%まで）"}, "s2": {"n": "西国無双", "t": "軍団の全兵士の攻撃+15%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、自軍の連撃が上昇（上昇率＝(宗茂の武勇−敵先陣で最も低い武勇)×3.6%、集結は重ねても最小10%・最大40%、敵がNPCなら10%固定）", "ln": 1, "lg": 2}, {"n": "神谷薫", "note": "", "tr": "全", "s1": {"n": "刃止め", "t": "軍団の戦闘時、自軍の負傷減少率+10%（最大20%、同類効果の共通上限50%）"}, "s2": {"n": "膝挫", "t": "軍団の戦闘時、薫の智略が武勇を超えていれば自軍の貫通が上昇（(現在智略−初期武勇)×1%、集結は重ねても元の貫通から最大+50%）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、自軍の貫通ダメージ+24%（集結は重ねがけ不可、最も大きい効果のみ）", "ln": 4, "lg": 1}, {"n": "緋村剣心", "note": "", "tr": "全", "s1": {"n": "天翔龍閃", "t": "戦闘前に先手で敵兵士の5%を負傷させる（自軍の速度が敵より1点高いごとに+0.2%、最大+8%。敵領主のみ有効、負傷兵は戦後回復しない。重ねた場合の上限は自軍か敵の集結軍団総兵力の10%の少ない方）"}, "s2": {"n": "九頭龍閃", "t": "軍団の戦闘勝利時、敵負傷兵の10%を撃滅（敵領主のみ、集結は重ねがけ不可で最大の効果のみ）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、集結の全兵士の速度+12。天翔龍閃で負傷させた数に応じて障壁を獲得（負傷させた割合×自軍の障壁×240%、集結は重ねがけで最大+500,000点）", "ln": 2, "lg": 1}, {"n": "井伊直政", "note": "", "tr": "馬", "s1": {"n": "人斬り兵部", "t": "軍団の全先陣の武勇による攻防補正効果+（本来の補正の）50%"}, "s2": {"n": "赤夜叉", "t": "集結の全騎兵の連撃+（基礎連撃の）10%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "直政が先陣のとき、戦闘の際に敵の軍師1名をランダムに襲撃し、その武将のスキルと守護霊6セットの効果を（本来の）80%に（「率兵数の補正」「派遣不要の補正」のみ影響）。さらに50%の確率でもう1名の違う軍師にも同様の効果（敵に同名の軍師が複数いれば全員に同じ効果。集結時は同名の軍師へは最大1回、敵の軍師は最大3名まで襲撃）", "ln": 8, "lg": 8}, {"n": "森長可", "note": "", "tr": "歩", "s1": {"n": "鬼武蔵", "t": "軍団の歩兵の障壁+20%"}, "s2": {"n": "二十七殺", "t": "戦闘時、長可より武勇が低い敵先陣1人をランダムに撃退し、その先陣の武勇補正を無効化。撃退のたびに50%の確率で別の先陣も続けて撃退（1回の戦闘で最大8人。集結は重ねがけ不可、確率が最も高いスキルのみ）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、自軍の合計障壁が敵より100点多いごとに自軍の抵抗+18%（集結は重ねて最大+25%・最小+10%）。自軍の障壁が1,000点失われるごとに敵の貫通−（既存値の）0.18%（集結は重ねがけ可、最大−20%・最小−10%）", "ln": 1, "lg": 2}, {"n": "加藤清正", "note": "", "tr": "全", "s1": {"n": "虎の加藤", "t": "交戦の前ごとに30%の確率で「振旅」を発動。発動後は交戦前ごとに自軍の攻撃+6%（戦闘終了まで持続、重ねがけ可。集結は1回の交戦で最大+15%・上限150点、1回の戦闘で最大+45%・上限500点）。振旅は1回の戦闘で1回のみ。覚醒が1段進むごとに発動確率+5%（集結は最大確率のスキルのみ有効）"}, "s2": {"n": "熊本藩主", "t": "戦闘中に振旅を発動した場合、敵全兵士の戦後回復効果−50%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "振旅の追加効果：発動後、敵の与ダメージ−12%（戦闘終了まで、集結は重ねても最大減少値は元ダメージの15%）。振旅で追加した攻撃が重ねがけで500点に達したとき、その交戦までに失った兵力の24%を回復（集結は重ねても最大30%）", "ln": 1, "lg": 2}, {"n": "果心居士", "note": "", "tr": "弓", "s1": {"n": "七宝行者", "t": "部隊の自分を含む全武将に庇護（五大能力は変わらず、スキル効果の無効・低下が起きない。集結時は他部隊の同名武将を含まない）。さらに部隊の弓兵防御+20%"}, "s2": {"n": "幻術", "t": "戦闘開始前に100%の確率で、敵の軍師1名と先陣1名をランダムに混乱させる（混乱した2名は五大能力を入れ替え、戦闘終了まで持続。集結時は同一部隊の同一武将に重複せず、最大4名の敵武将を混乱）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時に幻境を展開。幻境内で自軍に損失が出ると兵士の幻像が参戦（属性は通常の兵士と同じ。敵にダメージを与えるが、ダメージは受けない）。幻像の数は軍団の損失兵数の78%。幻境は3回戦後に消える（集結時は重ねがけ不可。戦闘終了後、幻像の死傷は通常どおり集計）。幻境内で幻像が現れない場合は自軍の与ダメージ+18%（集結は最大20%）", "ln": 8, "lg": 2}, {"n": "寿桂尼", "note": "", "tr": "全", "s1": {"n": "母儀", "t": "戦闘時、確率で発動する武将スキル／守護霊スキルの発動率が100%未満なら、発動率+10%（絶対値。集結は重ねがけ不可）"}, "s2": {"n": "尼御台", "t": "戦闘前に「懲戒」を6重獲得。交戦ごとに懲戒があれば敵ダメージを5%減らし自軍ダメージに変換、懲戒を1重消費（集結は懲戒の重数は重ねがけ不可、効果の重ねがけは最大10%、変換ダメージは元の10%まで）。自軍兵が0になったとき懲戒が残っていれば全消費し、その交戦の終了時に初期参戦兵の10%を回復して戦闘継続（集結は20%まで）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "集結内に確率発動の武将スキル／守護霊スキルを持つ武将が1名いるごとに懲戒+4重（合計上限22重、集結時は重ねがけ不可）。尼御台の懲戒全消費が5重消費に変わる", "ln": 2, "lg": 2}, {"n": "北条氏康", "note": "", "tr": "馬", "s1": {"n": "指揮", "t": "主将のとき、自身の基礎率兵数+20%"}, "s2": {"n": "無双・騎", "t": "軍団の騎兵攻撃+10%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、敵兵士の攻撃と防御の6%を自軍に転換（集結は重ねて最大10%、敵1名あたり最大−100、自軍1名あたり最大+50%）。軍団の戦闘時、敵の参戦兵士が自軍より1%多いごとに自軍の連撃が上昇（既存連撃×0.48%、集結は重ねがけで最小5%・最大15%）", "ln": 8, "lg": 2}, {"n": "山本勘助", "note": "", "tr": "馬", "s1": {"n": "匠心", "t": "支城／砦の普請に派遣したとき、普請速度+20%（普請時間は最大50%短縮）"}, "s2": {"n": "絶体・騎", "t": "軍団の騎兵防御+10%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、損失（損害と負傷）した兵力の72%を一定の確率で追加ダメージに変換（最大変換値は元ダメージの20%）", "ln": 8, "lg": 1}, {"n": "榊原康政", "note": "", "tr": "全", "s1": {"n": "十万石の触れ", "t": "主将のとき、自身の基礎率兵数+40%"}, "s2": {"n": "無欲無心", "t": "戦闘時、敵の障壁に与えるダメージ+5%（集結は重ねがけ可・最大10%）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、敵のダメージを低減（低減値＝前回の交戦で自軍の合計障壁が受けたダメージの12%。集結は重ねがけ不可で最大の効果のみ、低減は敵の元ダメージの15%まで、敵領主のみ）。部隊が弓兵なら自軍ダメージ+12%、歩兵なら敵ダメージ−12%を追加（集結は重ねて最大15%、敵領主とNPCに有効）", "ln": 2, "lg": 2}, {"n": "三浦按針", "note": "", "tr": "全", "s1": {"n": "引航", "t": "軍団に黒田官兵衛のスキルで複製された兵士がいる場合、複製割合+（割合の）50%（守護霊効果の本来の上限に制限されない）"}, "s2": {"n": "平戸商館", "t": "集結の全兵士の撃破+（基礎値の）10%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、複製した兵士の割合に応じて自軍の与ダメージが上昇（複製兵数（戦法の影武者を除く）÷軍団の初期参戦可能兵数（一目連の複製兵を除く）×96%。集結は重ねがけ可・元ダメージの35%まで）。按針の部隊がSSR核心兵具を装備し敵に元素（燃焼／中毒）ダメージを与えられる場合、このスキルのダメージも同じ元素ダメージに変換（複数あれば軍団兵力が最も高い方を基準）", "ln": 8, "lg": 8}, {"n": "上杉景勝", "note": "", "tr": "全", "s1": {"n": "米沢藩主", "t": "主将のとき、自身の基礎率兵数+40%"}, "s2": {"n": "御館平定", "t": "交戦の前ごとに、敵の初期参戦可能兵数の1.25%を失わせる（1回の上限は自軍の初期参戦可能兵数の2%、累計の上限は敵の初期参戦可能兵数の10%。集結は重ねがけ不可で最大の効果のみ）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、自軍の与ダメージ上昇（自軍参戦兵数÷両軍参戦兵数×24%）、敵の与ダメージ低下（敵参戦兵数÷両軍参戦兵数×24%）（集結は重ねがけ可、上昇は最大25%・低下は最大10%）", "ln": 2, "lg": 3}, {"n": "織田信忠", "note": "", "tr": "弓", "s1": {"n": "奇妙丸", "t": "軍団の全主将の率兵数+（基礎の）15%、自身は+25%。軍団に国友筒隊を連れた部隊があれば、その主将の率兵数をさらに+10%"}, "s2": {"n": "部隊検分", "t": "戦闘時、自軍の連撃+（既存連撃の）5%。所持武将が第六重まで覚醒していればさらに+5%（集結は重ねがけ可・最大+20%）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、自軍の元ダメージの18%を追加ダメージとして与える（集結は重ねがけ不可で最大の効果のみ）。自軍の最終連撃が敵より1%多いごとに追加ダメージ+（元ダメージの）0.5%（連撃差による追加は敵領主のみ、重ねがけ不可。上限は織田信忠の数×10%、集結で最大25%まで）", "ln": 2, "lg": 1}, {"n": "覇・武田信玄", "note": "武田信玄とは別武将", "tr": "全", "s1": {"n": "甲斐の虎", "t": "主将のとき帯同兵士+40%（部隊が騎兵ならさらに+5%）。敵に自軍武将の五大能力の補正効果を奪われた場合、敵の怒気ダメージ−15%（集結は重ねがけ不可で最大の効果のみ、自軍の元ダメージの40%まで）。集結に武田信繁・秋山信友・山県昌景のいずれかがいれば、低下させた怒気ダメージの20%を自軍ダメージに変換（重ねがけ不可）"}, "s2": {"n": "四象軍略", "t": "交戦ごとに戦況に応じて【風】【林】【火】【山】の軍旗を1つランダムに使用し、該当属性+10%（集結は重ねがけ不可、元の属性の20%まで、攻撃と防御は上限300点。戦闘終了まで持続、各軍旗は最大2回まで）【風】回避と命中／【林】連撃と抵抗／【火】攻撃と貫通／【山】防御と撃破"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "交戦ごとに使える軍旗の数は集結の兵種タイプの数と同じ。【風】【火】を使うと「動如雷震」：自軍ダメージ+24%（集結の上限30%）。【林】【山】を使うと「難知如陰」：敵ダメージ−24%（集結の上限30%）。風林火山の旗がすべて上限に達すると、必ず両方が発動し戦闘終了まで続く", "ln": null, "lg": null}, {"n": "武田信玄", "note": "", "tr": "馬", "s1": {"n": "甲陽", "t": "軍団の全主将の率兵数+（基礎の）15%"}, "s2": {"n": "虎旅", "t": "軍団の騎兵防御+15%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "軍団の武将と装備した宝物による騎兵補正効果+（本来の）24%", "ln": 8, "lg": 8}, {"n": "北条氏綱", "note": "", "tr": "馬", "s1": {"n": "叩殺", "t": "軍団の兵士の攻撃が上昇（上昇率＝兵士の基礎速度×50%）"}, "s2": {"n": "剣光", "t": "軍団の騎兵防御+15%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、自軍の抵抗が上昇（騎兵の割合×36%。重ねても基礎抵抗の40%まで）", "ln": 8, "lg": 2}, {"n": "山中鹿之介", "note": "", "tr": "馬", "s1": {"n": "麒麟児", "t": "集結の全騎兵の攻撃+10%"}, "s2": {"n": "再興", "t": "軍団の通常/強化騎兵の攻撃+10%（特殊/強化特殊騎兵ならさらに+10%）"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "軍団の戦闘時、敵兵士の既存障壁の6%を自軍の障壁に変換（最大で敵の既存障壁の30%、500,000点まで）", "ln": 8, "lg": 8}, {"n": "高坂昌信", "note": "", "tr": "馬", "s1": {"n": "逃げ弾正", "t": "部隊の軍師武将の智略による兵士の攻防補正+100%（主将が武田信玄ならさらに+200%）"}, "s2": {"n": "守将", "t": "軍団の騎兵防御が上昇（軍団の騎兵部隊数×5%）"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "軍団の騎兵抵抗+24%（主将が武田信玄ならさらに+24%）", "ln": 8, "lg": 8}, {"n": "山県昌景", "note": "", "tr": "馬", "s1": {"n": "赤備え", "t": "軍団に騎兵を帯同する主将がいれば、その主将の率兵数+（基礎の）25%"}, "s2": {"n": "忠魂義胆", "t": "集結の全騎兵の抵抗+10%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、自軍騎兵の攻撃・連撃・貫通+12%（集結は兵士1名あたり攻撃最大+100、連撃と貫通は最大+20%）", "ln": 8, "lg": 2}, {"n": "義姫", "note": "", "tr": "馬", "s1": {"n": "鬼姫", "t": "戦闘時、敵の兵種によって敵の貫通と撃破を下げる（貫通の低下率＝敵弓兵の割合×10%、撃破の低下率＝敵歩兵の割合×10%。集結は重ねがけ可、敵の基礎値から最大−10%・最小−5%）"}, "s2": {"n": "お東の方", "t": "軍団の騎兵の貫通+15%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、自軍の与ダメージ上昇（自軍騎兵の割合×12%、集結は最大15%）。自軍の最終貫通が敵より1%（絶対値）多いごとに、自軍の最終ダメージ+0.6%（集結時は最も大きいスキルのみ有効、上限のみ重ねがけ可。1スキルなら上限10%、最大20%）", "ln": 8, "lg": 2}, {"n": "真田信之", "note": "", "tr": "馬", "s1": {"n": "松代藩主", "t": "軍団の主将が騎兵の統率武将で、自身の率兵数だけを増やすスキルを持つ場合はその主将の率兵数+（基礎の）15%、それ以外は+60%"}, "s2": {"n": "真田家の存続", "t": "交戦ごとに、集結の騎兵武将が敵に追加ダメージを与えると「騎刃」を発動。次の交戦で自軍全騎兵武将の追加ダメージ+2.5%（複数回の交戦で重ねて最大30%。集結は重ねがけ可、1回の交戦で最大5%、1回の戦闘で最大30%）"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、被ダメージ−12%（集結は重ねがけ可・最大15%）。交戦ごとに、敵の兵力上限の1.2%にあたる最終ダメージを追加（集結は重ねがけ可、1回の交戦で最大3%、1回の戦闘の合計は敵の兵力上限の15%まで）", "ln": 2, "lg": 2}, {"n": "綾御前", "note": "", "tr": "馬", "s1": {"n": "聖淑", "t": "軍団の騎兵の撃破+（基礎の）15%"}, "s2": {"n": "仙桃院", "t": "交戦ごとに敵の防御−5%（集結は重ねがけ可。1回の交戦で15%・150点まで、1回の戦闘で累計60%・600点まで、戦闘終了まで持続）"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、自軍のすべての最終ダメージが上昇（騎兵の割合×18%、集結は重ねても最大18%）。さらに、前回の交戦後に自軍が累計で失った兵数の、初期参戦可能兵数に対する割合×60%だけ最終ダメージを追加（集結は重ねがけ不可で最大の効果のみ）", "ln": 3, "lg": 3}, {"n": "柿崎景家", "note": "", "tr": "馬", "s1": {"n": "一騎討ち", "t": "戦闘時、自軍の貫通が上昇（騎兵の割合×10%×既存貫通。集結は重ねがけ可、上昇は戦闘時の既存貫通の20%まで）"}, "s2": {"n": "柿崎町", "t": "戦闘時、部隊が騎兵なら、その基礎速度1点につき自軍の攻撃+5（集結は重ねがけ可・最大300点）"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、部隊が騎兵なら自軍の与ダメージ+24%。自軍の速度が敵より高ければさらに+6%（敵がNPCなら速度が低くても発動。集結は2種類とも重ねがけ不可で最大の効果のみ）", "ln": 2, "lg": 1}, {"n": "淀殿", "note": "", "tr": "歩", "s1": {"n": "妖姫", "t": "軍団の全主将の率兵数+（基礎の）15%"}, "s2": {"n": "制魄", "t": "軍団の歩兵攻撃+15%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "軍団の武将と装備した宝物による歩兵補正効果+（元の）24%", "ln": 8, "lg": 8}, {"n": "細川忠興", "note": "", "tr": "歩", "s1": {"n": "丹後宰相", "t": "主将で歩兵を帯同する場合、自身の基礎率兵数+40%"}, "s2": {"n": "苛烈", "t": "集結の全歩兵の防御+10%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、自軍の最終被ダメージを減らす（減少率＝歩兵の割合×60%。集結は重ねがけ可、元の被ダメージの30%まで）", "ln": 8, "lg": 2}, {"n": "武田信繁", "note": "", "tr": "歩", "s1": {"n": "真の副将", "t": "主将のとき、自身の基礎率兵数+30%"}, "s2": {"n": "古典厩", "t": "集結の全歩兵の攻撃+10%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "軍団に歩兵を帯同する主将がいれば、その主将の率兵数+（基礎の）24%", "ln": 8, "lg": 8}, {"n": "三好長慶", "note": "", "tr": "歩", "s1": {"n": "相伴衆", "t": "主将で歩兵を帯同する場合、自身の基礎率兵数+40%"}, "s2": {"n": "管領代", "t": "戦闘時、部隊の兵士が歩兵なら自軍の防御+30%（集結は重ねがけ可、上限は25＋三好長慶を派遣した領主数×75）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、部隊の与ダメージ+120%（集結は重ねがけ可、元ダメージからの上昇は最大+25%）", "ln": 8, "lg": 2}, {"n": "千代", "note": "", "tr": "歩", "s1": {"n": "持参金", "t": "軍団の死亡率−10%。戦闘時、自軍の最終被ダメージ−5%（集結は重ねがけ可、元の被ダメージの10%まで）"}, "s2": {"n": "妙心", "t": "軍団の歩兵防御+10%（特殊歩兵ならさらに+10%）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、自軍歩兵の防御・抵抗・障壁+12%（集結は兵士1名あたり防御最大+100、抵抗最大+20%、合計障壁最大+200,000）", "ln": 2, "lg": 2}, {"n": "北条綱成", "note": "", "tr": "歩", "s1": {"n": "八幡加護", "t": "軍団の歩兵の撃破+（基礎の）15%"}, "s2": {"n": "黄備の陣", "t": "3回目の交戦から、敵に10%の追加ダメージ（集結は重ねがけ不可、レベルが最も高いスキルのみ発動）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、自軍の撃破が上昇（歩兵の割合×30%×既存撃破。集結は重ねても既存撃破から最大+25%）。自軍の最終撃破が敵より1%（絶対値）多いごとに、黄備の陣の効果がさらに+1.2%（集結は重ねがけ不可、黄備の陣の上昇は最小5%・最大10%）", "ln": 8, "lg": 2}, {"n": "高橋紹運", "note": "", "tr": "歩", "s1": {"n": "乱世の華", "t": "軍団の歩兵攻撃+40%"}, "s2": {"n": "九州の風神", "t": "部隊が歩兵なら、戦闘時に「岩屋の激戦」を発動し敵の防御−10%（上限は100+300×自軍歩兵の割合。集結は重ねがけ不可で最大の効果のみ）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "集結の全歩兵の貫通+（基礎の）24%。戦闘時、敵の撃破を下げる（低下値＝自軍の既存撃破の24%。集結は重ねがけ可、最大で敵の既存撃破の40%まで、低下後も敵の撃破は既存の20%以上を維持）", "ln": 1, "lg": 2}, {"n": "出雲阿国", "note": "", "tr": "弓", "s1": {"n": "ややこ踊り", "t": "主将で弓兵を帯同する場合、自身の基礎率兵数+40%"}, "s2": {"n": "かぶき踊り", "t": "軍団の戦闘時、敵兵士の既存障壁−10%（集結は重ねても敵の既存障壁から最大1,000,000点まで）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、自軍の連撃が上昇（弓兵の割合×36%。集結は重ねても元の連撃から最大+40%）", "ln": 8, "lg": 2}, {"n": "伊達稙宗", "note": "", "tr": "弓", "s1": {"n": "政略", "t": "軍団の全主将の率兵数+（基礎の）15%"}, "s2": {"n": "分国", "t": "軍団の通常/強化弓兵の攻撃+10%（特殊/強化特殊弓兵ならさらに+10%）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "軍団の武将と装備した宝物による弓兵補正効果+（本来の）36%", "ln": 8, "lg": 8}, {"n": "春日局", "note": "", "tr": "弓", "s1": {"n": "お福", "t": "軍団に弓兵を帯同する主将がいれば、その主将の率兵数+（基礎の）25%"}, "s2": {"n": "懐柔", "t": "集結の全弓兵の抵抗+（基礎の）10%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、自軍弓兵の攻撃・連撃・貫通+（既存値の）12%（集結は兵士1名あたり攻撃最大+100、連撃と貫通は最大+20%）", "ln": 8, "lg": 2}, {"n": "秋山信友", "note": "", "tr": "弓", "s1": {"n": "武田の猛牛", "t": "集結の全弓兵の障壁+（基礎の）10%"}, "s2": {"n": "岩村城の防戦", "t": "交戦時、元ダメージの5%に相当する「絶体ダメージ」を追加。敵武将に異常状態を与える自軍の弓兵武将1名につき1回（異常状態＝五大能力補正やスキル効果が変わる状態。対象は織田信長・斎藤利三・果心居士・竹中半兵衛。集結時、同名武将は重ねがけ不可）。最大3回まで（集結は重ねがけ可、合計の最大は元ダメージの15%）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "交戦後ごとに、岩村城の防戦で与えたダメージに応じて自軍の障壁が上昇（与ダメージの96%×10、最大500,000点）。絶体ダメージを与える回数が最大3回を超える場合、超えた1回につき18%の最終ダメージを追加（集結は重ねがけ可、元の最終ダメージの30%まで）", "ln": 3, "lg": 2}, {"n": "竹中半兵衛", "note": "", "tr": "弓", "s1": {"n": "粉砕", "t": "軍団の兵士の攻撃+10%"}, "s2": {"n": "無双・弓", "t": "軍団の弓兵攻撃+10%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、敵軍団の軍師武将5名の智略補正を無効にする（対象武将の智略による補正が0になる）", "ln": 8, "lg": 8}, {"n": "佐々成政", "note": "", "tr": "馬", "s1": {"n": "北陸の狼", "t": "成政が参戦していれば、戦闘時に敵の全軍団へ「防御崩壊」（敵の最終防御の10%を無視。重ねがけ不可で最大の効果のみ、敵の戦闘時の最終防御が基準）"}, "s2": {"n": "さらさら越え", "t": "戦闘時、自軍の抵抗が上昇（騎兵の割合×15%、集結は重ねがけ可・最大30%）"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "戦闘時、自軍の与ダメージ+24%（集結は最大+25%）。自軍兵数が初期参戦兵数の50%を下回ると、さらに+12%（集結は最大15%）", "ln": 2, "lg": 2}, {"n": "愛姫", "note": "", "tr": "歩", "s1": {"n": "再会", "t": "戦闘時、自軍防御の10%を自軍攻撃に加算（集結は防御を最大20%で計算、攻撃に最大800まで加算）。自軍攻撃の10%を自軍防御にも加算（集結は攻撃を最大20%で計算、防御に最大800まで加算）"}, "s2": {"n": "琴瑟相和", "t": "軍団の全兵士の障壁+（基礎の）30%（歩兵ならさらに+10%）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "愛姫が出陣していれば、戦闘中の敵の元ダメージ−12%（集結は重ねがけ可・最大−15%）", "ln": 2, "lg": 2}, {"n": "濃姫", "note": "", "tr": "弓", "s1": {"n": "権謀・離", "t": "策略「離間」の発動時、効果+50%"}, "s2": {"n": "鉄壁〈優〉・弓", "t": "部隊の弓兵防御+20%"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、敵兵士の貫通−（既存貫通の）12%（集結は重ねても敵の既存貫通から最大50%減）", "ln": 8, "lg": 5}, {"n": "津軽為信", "note": "", "tr": "全", "s1": {"n": "右京大夫", "t": "軍団の全兵士の攻撃+10%"}, "s2": {"n": "鎧袖", "t": "部隊の全兵士の防御+20%"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、敵兵士の貫通−（既存貫通の）12%（集結は重ねても敵の既存貫通から最大−50%。津軽為信と濃姫の専属守護霊は効果の上限が共通）", "ln": 8, "lg": 5}, {"n": "前田慶次", "note": "", "tr": "馬", "s1": {"n": "十七騎", "t": "軍団の戦闘時、敵の参戦兵士が自軍より1%多いごとに部隊の攻撃+0.5%（最小+20%・最大+60%）"}, "s2": {"n": "奮戦〈優〉・騎", "t": "部隊の騎兵攻撃+20%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "軍団の戦闘時、敵兵士が自軍より1%多いごとに自軍の与ダメージ+0.48%（集結は重ねても最小+3%・最大+10%）", "ln": 3, "lg": 2}, {"n": "柴田勝家", "note": "", "tr": "歩", "s1": {"n": "粉砕", "t": "軍団の兵士の攻撃+10%"}, "s2": {"n": "奮戦〈優〉・歩", "t": "部隊の歩兵攻撃+20%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "集結の全歩兵の抵抗+（基礎の）12%", "ln": 8, "lg": 8}, {"n": "足利義昭", "note": "", "tr": "全", "s1": {"n": "御旗", "t": "勤王：交戦の前ごとに、次の勅命から2つを選んで実行（集結は各項目とも重ねがけ可）。伐の道：刃備＝攻撃+12%（累計上限1000点）／火攻＝貫通+8%（上限25%）／統制＝連撃+8%（上限25%）。御の道：甲備＝防御+12%（上限1000点）／竹障＝撃破+8%（上限25%）／堵防＝抵抗+8%（上限25%）"}, "s2": {"n": "将軍裁定", "t": "2回目の交戦から、交戦ごとに50%の確率で敵兵士に【改易】か【没収】のどちらかを付与。改易＝付与された側が前回の交戦で与えた総ダメージの15%を追加の最終ダメージとして受ける（集結は重ねがけ可・上限25%）。没収＝与える最終ダメージ−15%（集結は重ねがけ可・上限25%）。「伐の道」と「御の道」から別々の勅命を選んで同時に実行すると、別の幕府機能が発動"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、自軍の与ダメージ+24%（集結は重ねがけ可・上限30%）。さらに改易と没収の発動率+18%（集結は重ねがけ不可で最大の効果のみ）", "ln": 8, "lg": 8}, {"n": "柳生宗厳", "note": "", "tr": "全", "s1": {"n": "無刀取り", "t": "戦闘時、敵に対する兵種相克の有利+20%（集結は重ねがけ可・最大80%）。自軍と敵の間に兵種相克がなければ、自軍全兵士の20%が「必勝」効果を得る（集結は重ねがけ可・最大40%）。敵に対して兵種相克の不利があれば、不利になった自軍兵士の20%が「逆風」効果を得る（集結は重ねがけ可・最大40%）"}, "s2": {"n": "畿内随一", "t": "戦闘時、敵を「制圧」する兵種が自軍にいれば、初回の交戦前に初期参戦兵数の10%を追加で獲得（集結は重ねがけ可、初期参戦兵数の20%まで）。敵に対する兵種相克の不利があれば、交戦ごとに敵兵士の10%に「添戴乱載」を適用（集結は重ねがけ不可で最大の効果のみ）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、自軍の与ダメージ+24%（集結は重ねがけ可、元ダメージの30%まで）。敵を「制圧」する兵種が自軍にいれば、さらに12%の追加ダメージ（集結は重ねがけ不可で最大の効果のみ）。敵に対する兵種相克の不利があれば、敵に「添戴乱載」が適用される割合+（本来の）120%（重ねがけ不可で最大の効果のみ）", "ln": 8, "lg": 2}, {"n": "真田幸隆", "note": "", "tr": "馬", "s1": {"n": "攻め弾正", "t": "戦闘時、自軍の抵抗と撃破+（既存値の）10%（集結は重ねがけ可、既存値の20%まで）"}, "s2": {"n": "一徳斎", "t": "軍団の兵士の撃破+（基礎の）20%、騎兵はさらに+10%"}, "g2": "部隊の騎兵攻撃+6%", "g4": "部隊の騎兵防御+6%", "g6": "1回目の交戦前、両軍の初期参戦兵数の12%にあたる兵士を移動させる（集結は重ねがけ不可で最大の効果のみ）。2回目の交戦前、移動した自軍兵士を戻し、敵兵士の一部を説得して自軍兵力に加える（説得数＝移動させた敵兵士数の60%）。戦闘終了時、説得した兵士をダメージ減少を無視して撃滅（集結は重ねがけ可・最大100%。説得数は自軍初期参戦兵数の15%まで、説得されなかった敵兵士は戦闘終了後に帰還）", "ln": 2, "lg": 1}, {"n": "天草四郎", "note": "", "tr": "弓", "s1": {"n": "フランシスコ", "t": "軍団の全主将の率兵数+（基礎の）25%。弓兵の特殊兵を帯同していれば、その主将の率兵数をさらに+5%"}, "s2": {"n": "一揆軍の中心", "t": "戦闘時、自軍の抵抗+（既存の）15%（集結は重ねがけ可・最大30%）。15%の確率で敵の連撃と撃破−（既存値の）10%（集結は重ねがけ不可で最大の効果のみ）。第6重まで覚醒するとこの確率が100%に上がる（集結は重ねがけ不可で確率が最も高いもののみ）。低下は自軍の既存の連撃と撃破の20%まで"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、交戦ごとに自軍の被ダメージ−18%〜24%（係数はランダム。集結は重ねがけ不可で最大の効果のみ）。自軍に天草四郎が1名いるごとに、ランダム判定の係数の上限+10%", "ln": 1, "lg": 1}, {"n": "鍋島直茂", "note": "", "tr": "弓", "s1": {"n": "通謀", "t": "交戦の前ごとに、損失した兵士（損害＋負傷）の6%を回復。軍団が全員弓兵なら回復+2%（集結は重ねがけ不可で最大の効果のみ）"}, "s2": {"n": "佐賀藩祖", "t": "戦闘時、自軍の貫通+（既存の）10%（集結は重ねがけ可・上昇率最大16%）。直茂の部隊が弓兵ならさらに+5%（集結は重ねがけ可・上昇率最大10%）。交戦の前ごとに、自軍兵数が敵より2%多いごとに自軍の撃破+（既存の）1%（集結は重ねがけ不可で最大の効果のみ、最大上昇率30%）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、自軍に「おとり兵」を1部隊追加（数＝戦闘開始時の実際の参戦兵数×24%、集結は重ねがけ可・最大40%）。さらに被ダメージ−12%（集結は重ねがけ可・最大20%）", "ln": 1, "lg": 2}, {"n": "福島正則", "note": "", "tr": "歩", "s1": {"n": "猪武者", "t": "戦闘時、自軍の貫通+（既存の）10%（集結は重ねがけ可・最大16%）。正則の部隊が歩兵ならさらに+5%（集結は重ねがけ不可で最大の効果のみ）。自軍の参戦可能兵数が初期参戦兵数の70%を下回ると、各交戦で兵を失うと敵が次の交戦で受けるダメージが上昇（自軍が兵を2%失うごとに+1%。集結は重ねがけ不可で最大の効果のみ、最大20%）"}, "s2": {"n": "広島藩主", "t": "戦闘時、自軍の抵抗+（既存の）10%（集結は重ねがけ可・最大16%）。各交戦で、前回の交戦の自軍損失兵数に応じて抵抗を追加（初期参戦兵数の6%を失うごとに+1%、正則の部隊が歩兵ならさらに+0.5%。集結は重ねがけ不可で最大の効果のみ、最大20%）"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、自軍の与ダメージ+12%（集結は最大15%）。自軍の参戦可能兵数が初期参戦兵数の70%を下回ると、さらに+12%（集結は重ねがけ不可で最大の効果のみ）", "ln": 0, "lg": 0}, {"n": "おつやの方", "note": "", "tr": "全", "s1": {"n": "岩村御前", "t": "戦闘時、敵の最終貫通が自軍の最終撃破より高ければ自軍の抵抗+20%（集結は重ねがけ可・最高30%）。そうでなければ自軍の攻撃+25%（集結は重ねがけ可、最大は元の攻撃の35%・上限800点）"}, "s2": {"n": "至親相殺", "t": "戦闘時、自軍の障壁が0より大きければ、交戦の前ごとに障壁を5%差し引き、その2%を自軍兵士に変換（1回の変換は初期参戦兵数の6%まで、累計25%まで）。障壁が0なら自軍の防御+20%（集結は重ねがけ可、最大は元の防御の35%・上限800点）"}, "g2": "部隊の全兵士の攻撃+6%", "g4": "部隊の全兵士の防御+6%", "g6": "戦闘時、【岩村御前】の制限を無視して2つの効果が同時に有効になる。交戦ごとに前回の両軍のダメージを比べ、自軍より敵のダメージが高ければ自軍の被ダメージ−24%（集結は重ねがけ可・最大25%）、低ければ自軍の与ダメージ+24%（集結は重ねがけ可・最大25%）", "ln": 2, "lg": 2}, {"n": "島津歳久", "note": "", "tr": "弓", "s1": {"n": "利害の洞察", "t": "交戦ごとに敵の攻撃−5%（集結は重ねがけ可。1回の交戦で15%・150点まで、戦闘全体の累計で60%・600点まで、戦闘終了まで持続）"}, "s2": {"n": "妙計暗躍", "t": "戦闘時、自軍の障壁+（既存の）10%（集結は最大20%・200,000まで）。歳久の部隊が弓兵ならさらに+10%（集結は重ねがけ不可、最大100,000まで）"}, "g2": "部隊の弓兵攻撃+6%", "g4": "部隊の弓兵防御+6%", "g6": "戦闘時、自軍の最終ダメージ+18%（集結は最大25%）。交戦ごとに75%の確率で、自軍の最終ダメージをさらに+12%（集結は重ねがけ不可で最大の効果のみ）", "ln": 3, "lg": 2}, {"n": "伊達成実", "note": "", "tr": "歩", "s1": {"n": "武早智雄命", "t": "交戦ごとに50%の確率で自軍の与ダメージ+4%（集結は重ねがけ不可で最大の効果のみ、最大25%、戦闘終了まで持続）。成実が歩兵部隊にいれば確率が100%になる"}, "s2": {"n": "退かぬ", "t": "戦闘時、自軍の貫通+15%（集結は重ねがけ可・最大25%）。敵が兵数を増やす武将スキル効果（おとり部隊、幻像、複製など）を発動したとき、自軍は60%の確率で【全知全能】を発動し、現在参戦している兵数の5%の援兵を参戦させる（上限は初期参戦兵数の15%）。成実が歩兵部隊にいれば発動確率100%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "戦闘時、敵弓兵の自軍歩兵に対する相克の有利−48%、自軍歩兵の敵騎兵に対する相克の有利+48%（同じ領主の当該スキル効果は【恋歌】効果と重ねがけ可。【人頭最強】【旋風斬り】とは最も高いものだけ有効。集結時のスキル共通上限は80%）", "ln": null, "lg": 8}, {"n": "ねね", "note": "", "tr": "歩", "s1": {"n": "権謀・誘", "t": "策略「返り忠」の成功時、効果+50%"}, "s2": {"n": "鉄壁〈優〉・歩", "t": "部隊の歩兵防御+20%"}, "g2": "部隊の歩兵攻撃+6%", "g4": "部隊の歩兵防御+6%", "g6": "この武将を持つ領主の全兵士の攻撃+24%（派遣不要）", "ln": 8, "lg": 8}];
+let slTr="";
+const slHl=s=>esc(s).replace(/(重ねがけ不可|重ね掛け不可|共通上限[^、。）]*|上限\d+%)/g,"<mark>$1</mark>");
+const slLim=v=>v==null?"―":`<b class="${v<8?"lo":""}">${v}</b>`;
+function slCard(o){return `<article class="sl-card">
+  <div class="sl-head"><span class="sl-name">${esc(o.n)}</span><span class="sl-tr ${o.tr}">${o.tr==="全"?"全兵種":o.tr}</span><span class="sl-lim">通常 ${slLim(o.ln)}　守護霊 ${slLim(o.lg)}</span></div>
+  ${o.note?`<div class="sl-note">${esc(o.note)}</div>`:""}
+  <div class="sl-sec"><span class="sl-lab">スキル①</span><div class="sl-sk"><b>${esc(o.s1.n)}</b>${slHl(o.s1.t)}</div></div>
+  <div class="sl-sec"><span class="sl-lab">スキル②</span><div class="sl-sk"><b>${esc(o.s2.n)}</b>${slHl(o.s2.t)}</div></div>
+  <div class="sl-sec"><span class="sl-lab">守護霊</span><div><div class="sl-g6"><span class="sl-k">6セット</span>${slHl(o.g6)}</div><div class="sl-g24">2セット：${esc(o.g2)}　／　4セット：${esc(o.g4)}</div></div></div></article>`}
+function renderSkills(){const q=$("slQ").value.trim(),lo=$("slLo").checked,ng=$("slNg").checked;
+  const list=SKILLS.filter(o=>{const all=[o.n,o.note,o.s1.n,o.s1.t,o.s2.n,o.s2.t,o.g2,o.g4,o.g6].join(" ");
+    return (!slTr||o.tr===slTr)&&(!q||all.includes(q))&&(!lo||(o.ln!=null&&o.ln<8)||(o.lg!=null&&o.lg<8))&&(!ng||/重ねがけ不可|重ね掛け不可/.test(all))});
+  $("slGrid").innerHTML=list.length?list.map(slCard).join(""):'<p class="legend">条件に合う武将がいません。検索語や絞り込みを変えてください。</p>';
+  $("slCount").textContent=`${list.length} / ${SKILLS.length}人`}
+document.querySelectorAll(".sl-chip").forEach(b=>b.addEventListener("click",()=>{slTr=b.dataset.tr;document.querySelectorAll(".sl-chip").forEach(x=>x.setAttribute("aria-pressed",x===b));renderSkills()}));
+["slQ","slLo","slNg"].forEach(id=>$(id).addEventListener("input",renderSkills));
+function route(){const v=curView;document.body.classList.toggle("wide",v==="plan");const ok=["input","roster","rally","plan","rules","skills","view"].includes(v)?v:"input";
+  for(const x of ["input","roster","rally","plan","rules","skills","view"]) $("v-"+x).hidden=x!==ok;
   document.querySelectorAll("nav a").forEach(a=>{if(a.dataset.v===ok)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
   $("savebar").hidden=ok!=="input";
-  if(ok==="roster")renderRoster(); if(ok==="rally")renderRally();}
-addEventListener("hashchange",route);
+  if(ok==="roster")renderRoster(); if(ok==="rally")renderRally(); if(ok==="plan")renderPlanView(); if(ok==="rules")renderRules(); if(ok==="skills")renderSkills(); if(ok==="view")renderView();}
+function go(v){curView=v;route();try{window.scrollTo(0,0)}catch(e){}}
+document.querySelector("nav").addEventListener("click",e=>{const a=e.target.closest("a[data-v]");if(!a)return;e.preventDefault();go(a.dataset.v)});
 
 /* ---------- 入力フォーム構築 ---------- */
 function buildForm(){
@@ -278,7 +909,7 @@ function buildForm(){
   $("genBox").innerHTML=GENS.map(([cat,list])=>`<div class="cat">${cat}</div><div class="gens">`+list.map(([n,s])=>{const k=ALLGEN.findIndex(g=>g.n===n);
     return `<div class="gen" data-k="${k}"><span class="nm" title="${n}">${n}</span>
     <span class="seg" role="group" aria-label="${n}">${["","0","1","2"].map(v=>`<button type="button" data-v="${v}" aria-pressed="false">${v===""?"―":v}</button>`).join("")}</span>
-    ${s?`<select aria-label="${n} 守護霊Lv" disabled><option value="">Lv</option>${Array.from({length:12},(_,i)=>`<option>${i+1}</option>`).join("")}</select>`:"<span></span>"}${EXTRA[n]?`<div class="xr">${EXTRA[n].map(l=>`<label>${l}<input type="number" step="0.1" min="0" data-x="${l}" aria-label="${n} ${l}" disabled></label>`).join("")}</div>`:""}</div>`}).join("")+"</div>").join("");
+    ${s?`<select aria-label="${n} 守護霊Lv" disabled><option value="">Lv</option>${Array.from({length:12},(_,i)=>`<option>${i+1}</option>`).join("")}</select>`:"<span></span>"}${EXTRA[n]?`<div class="xr">${EXTRA[n].map(l=>`<label>${l}<input type="number" step="0.1" min="0" data-x="${l}" aria-label="${n} ${l}" disabled></label>`).join("")}${XHINT[n]?`<span class="hint">${XHINT[n]}</span>`:""}</div>`:""}</div>`}).join("")+"</div>").join("");
   $("trpBox").innerHTML=TROOPS.map((t,i)=>`<fieldset><legend>${t}兵</legend>
     <label class="f">LV<select id="t-lv-${i}"><option value="">―</option>${Array.from({length:15},(_,k)=>k+1).map(v=>`<option value="${v}">${v}</option><option value="${v}+">${v}強化</option>`).join("")}</select></label>
     <label class="f">上級軍略<select id="t-gr-${i}"><option value="">ー</option><option value="初">初級</option><option value="中">中級</option><option value="上">上級</option></select></label>
@@ -286,6 +917,19 @@ function buildForm(){
     <label class="f">具足SR<input type="number" id="t-sr-${i}" min="0" style="width:4.5em"></label>
     <label class="f">具足SSR<input type="number" id="t-ssr-${i}" min="0" style="width:4.5em"></label>
     <label class="f">軍馬LV20<input type="number" id="t-hb-${i}" min="0" style="width:4.5em"></label></fieldset>`).join("");
+  $("jinBox").innerHTML=TROOPS.map((t,i)=>`<fieldset><legend>${t}兵の具足</legend><label class="f">陣<select id="jin-${i}" data-jin="${i}"><option value="">なし</option>${JIN.map(j=>`<option value="${j}">${j}の陣</option>`).join("")}</select></label>
+    ${JIN.map((j,k)=>`<div class="row jrow" data-jr="${i}-${j}" style="gap:6px;align-items:flex-end"><span style="min-width:3.5em">${j}の相克</span><label class="f">有利<input type="number" step="0.1" min="0" id="jin-${i}-${k}-u" style="width:4.6em"></label><label class="f">不利<input type="number" step="0.1" min="0" id="jin-${i}-${k}-f" style="width:4.6em"></label></div>`).join("")}</fieldset>`).join("");
+  $("hsAdd").innerHTML='<option value="">姫を選ぶ</option>'+HIME_ALL.map(n=>`<option>${n}</option>`).join("");
+  $("hhBox").innerHTML=HEIHO.map((n,i)=>`<label><input type="checkbox" id="hh-${i}">${n}</label>`).join("");
+  $("menBox").innerHTML=MEN.map((n,i)=>`<label><input type="checkbox" id="men-${i}">${n}</label>`).join("");
+  $("shinBox").innerHTML=SHIN.map((n,i)=>`<label class="f">${n}<select id="shin-${i}"><option value="">―</option>${[1,2,3,4,5,6,7].map(v=>`<option>${v}</option>`).join("")}</select></label>`).join("");
+  $("asBox").innerHTML=TROOPS.map((t,i)=>`<fieldset><legend>${t}</legend><label class="f">全体（レベル）<input type="number" id="as-a-${i}" min="0" style="width:5em"></label>${["Lv30","Lv60","Lv90"].map((l,k)=>`<div class="row" style="gap:6px;align-items:flex-end"><label class="f">${l}スキル<input id="as-${i}-${k}" list="asList" style="width:9em" autocomplete="off"></label><label class="f">LV<select id="as-l-${i}-${k}"><option value="">―</option>${Array.from({length:10},(_,v)=>`<option>${v+1}</option>`).join("")}</select></label></div>`).join("")}</fieldset>`).join("");
+  $("asList").innerHTML=AS_KNOWN.map(n=>`<option value="${n}">`).join("");
+  $("skBox").innerHTML=TROOPS.map((t,i)=>`<fieldset><legend>姫装備　${t}</legend>
+    <label class="f">有利<input type="number" step="0.01" id="sk-hu-${i}" style="width:5.5em"></label>
+    <label class="f">不利<input type="number" step="0.01" id="sk-hf-${i}" style="width:5.5em"></label></fieldset>`).join("")
+    +`<fieldset><legend>庭園</legend><label class="f">有利<input type="number" step="0.01" id="sk-tu" style="width:5.5em"></label>
+    <label class="f">不利<input type="number" step="0.01" id="sk-tf" style="width:5.5em"></label></fieldset>`;
   $("itemBox").innerHTML=ITEMS.map(([k,l])=>`<label class="f">${l}<input type="number" id="it-${k}" min="0"></label>`).join("");
   $("genBox").addEventListener("click",e=>{const b=e.target.closest(".seg button");if(!b||!draft)return;
     const row=b.closest(".gen"), g=ALLGEN[+row.dataset.k], v=b.dataset.v;
@@ -314,6 +958,15 @@ function fillForm(){
   document.querySelectorAll("#genBox .gen").forEach(r=>paintGen(r,ALLGEN[+r.dataset.k]));
   TROOPS.forEach((t,i)=>{const x=(d.troops||{})[t]||{};setv("t-lv-"+i,x.lv?x.lv+(x.lvPlus?"+":""):"");setv("t-gr-"+i,x.gunryaku);setv("t-pr-"+i,x.shindo);setv("t-sr-"+i,x.gusoku_sr);setv("t-ssr-"+i,x.gusoku_ssr);setv("t-hb-"+i,x.gunba)});
   ITEMS.forEach(([k])=>setv("it-"+k,(d.items||{})[k]));
+  hsPaint(d);
+  TROOPS.forEach((t,i)=>{const x=(d.jin||{})[t]||{};setv("jin-"+i,x.j);JIN.forEach((j,k)=>{const v=(x.v||{})[j]||{};setv(`jin-${i}-${k}-u`,v.u);setv(`jin-${i}-${k}-f`,v.f)})});jinPaint();
+  HEIHO.forEach((n,i)=>{$("hh-"+i).checked=!!(d.heiho||{})[n]});
+  MEN.forEach((n,i)=>{$("men-"+i).checked=!!(d.men||{})[n]});
+  SHIN.forEach((n,i)=>setv("shin-"+i,(d.shin||{})[n]));
+  TROOPS.forEach((t,i)=>{[0,1,2].forEach(k=>{setv("as-"+i+"-"+k,(((d.ashura||{})[t])||[])[k]);setv("as-l-"+i+"-"+k,((((d.asLv||{})[t])||{}).s||[])[k])});setv("as-a-"+i,(((d.asLv||{})[t])||{}).all)});
+  setv("as-c",(d.asLv||{}).center);
+  {const sk=d.sk||{},h=sk.hime||{};TROOPS.forEach((t,i)=>{setv("sk-hu-"+i,(h[t]||{}).u);setv("sk-hf-"+i,(h[t]||{}).f)});setv("sk-tu",(sk.teien||{}).u);setv("sk-tf",(sk.teien||{}).f);skSumPaint()}
+  if(typeof gdRender==="function"){gdCur=0;gdRender()}
   const m=members[curId]; const owned=Object.values(d.generals).length, two=Object.values(d.generals).filter(x=>x.a===2).length;
   $("whoInfo").innerHTML=`<span><b>${owned}</b>人 所持</span><span><b>${two}</b>人 専属守護霊覚醒</span><span>最終更新 ${esc(m?.updatedAt||"未保存")}</span>${m?.source==="スプシ取込"?'<span class="pill old">スプシから取り込んだ古い値</span>':""}`;
 }
@@ -321,7 +974,39 @@ function readSimple(){const d=draft;
   d.power=num($("power").value);d.rally=num($("rally").value);
   d.sp=d.sp||{};SP.forEach((n,i)=>{const s=num($("sp-s-"+i).value),f=num($("sp-f-"+i).value);if(s==null&&f==null)delete d.sp[n];else d.sp[n]={shugi:s,fuku:f}});
   d.troops=d.troops||{};TROOPS.forEach((t,i)=>{const lvv=$("t-lv-"+i).value;d.troops[t]={lv:lvv?parseInt(lvv,10):null,lvPlus:lvv.endsWith("+"),gunryaku:$("t-gr-"+i).value||null,shindo:num($("t-pr-"+i).value),gusoku_sr:num($("t-sr-"+i).value),gusoku_ssr:num($("t-ssr-"+i).value),gunba:num($("t-hb-"+i).value)}});
-  d.items=d.items||{};ITEMS.forEach(([k])=>d.items[k]=num($("it-"+k).value));}
+  d.items=d.items||{};ITEMS.forEach(([k])=>d.items[k]=num($("it-"+k).value));
+  const hime={};TROOPS.forEach((t,i)=>{const u=num($("sk-hu-"+i).value),f=num($("sk-hf-"+i).value);if(u!=null||f!=null)hime[t]={u,f}});
+  const tu=num($("sk-tu").value),tf=num($("sk-tf").value);
+  hsRead(d);
+  const jn={};TROOPS.forEach((t,i)=>{const j=$("jin-"+i).value,v={};JIN.forEach((jj,k)=>{const u=num($(`jin-${i}-${k}-u`).value),f=num($(`jin-${i}-${k}-f`).value);if(u!=null||f!=null)v[jj]={u,f}});
+    if(j||Object.keys(v).length)jn[t]={j,v}});if(Object.keys(jn).length)d.jin=jn;else delete d.jin;jinPaint();
+  const hh={};HEIHO.forEach((n,i)=>{if($("hh-"+i).checked)hh[n]=1});if(Object.keys(hh).length)d.heiho=hh;else delete d.heiho;
+  const mn={};MEN.forEach((n,i)=>{if($("men-"+i).checked)mn[n]=1});if(Object.keys(mn).length)d.men=mn;else delete d.men;
+  const sh={};SHIN.forEach((n,i)=>{const v=num($("shin-"+i).value);if(v!=null)sh[n]=v});if(Object.keys(sh).length)d.shin=sh;else delete d.shin;
+  const as={};TROOPS.forEach((t,i)=>{const a=[0,1,2].map(k=>$("as-"+i+"-"+k).value.trim());if(a.some(Boolean))as[t]=a});if(Object.keys(as).length)d.ashura=as;else delete d.ashura;
+  const al={};const c=num($("as-c").value);if(c!=null)al.center=c;
+  TROOPS.forEach((t,i)=>{const all=num($("as-a-"+i).value),sl=[0,1,2].map(k=>num($("as-l-"+i+"-"+k).value));if(all!=null||sl.some(v=>v!=null))al[t]={all,s:sl}});
+  if(Object.keys(al).length)d.asLv=al;else delete d.asLv;
+  d.sk={hime,teien:(tu!=null||tf!=null)?{u:tu,f:tf}:null};if(!Object.keys(hime).length&&!d.sk.teien)delete d.sk;skSumPaint();}
+/** 陣と違う相克の行を薄くし、警告を出す */
+function jinPaint(){if(!$("jinBox"))return;const w=[];TROOPS.forEach((t,i)=>{const j=$("jin-"+i).value;JIN.forEach((jj,k)=>{const row=document.querySelector(`[data-jr="${i}-${jj}"]`);const has=num($(`jin-${i}-${k}-u`).value)||num($(`jin-${i}-${k}-f`).value);
+    const bad=!!has&&jj!==j;row.style.opacity=(j&&jj!==j)?.45:1;if(bad)w.push(`${t}兵は${j?j+"の陣":"陣なし"}なので、${jj}の相克は効きません`);
+    if(jj===j)[["u","有利"],["f","不利"]].forEach(([q,lb])=>{const v=num($(`jin-${i}-${k}-${q}`).value);if(v>JIN_CAP)w.push(`${t}兵の${lb}${v}%は上限50%を超えています`)})})});
+  $("jinWarn").innerHTML=w.length?`<b style="color:var(--warn)">${w.map(esc).join("／")}</b>`:""}
+/** 集結で効く具足相克：兵種ごとに付けた陣と同じ陣の相克だけ。troops を渡すとその兵種だけ */
+function jinOf(m,troops){const out=[],bad=[];Object.entries(m.jin||{}).forEach(([t,x])=>{if(troops&&!troops.has(t))return;
+  Object.entries(x.v||{}).forEach(([jj,v])=>{const u=+v.u||0,f=+v.f||0;if(!u&&!f)return;if(jj===x.j)out.push({t,j:jj,u,f});else bad.push({t,j:x.j,jj,u,f})})});return {out,bad}}
+function hsRow(n,v){v=v||{};const c=(t,k)=>`<td><input type="number" step="0.1" min="0" data-hs="${t}${k}" value="${(v[t]||{})[k]??""}" aria-label="${n} ${t}${k==="u"?"有利":"不利"}"></td>`;
+  return `<tr data-hime="${esc(n)}"><td>${esc(n)}</td>${TROOPS.map(t=>c(t,"u")+c(t,"f")).join("")}<td><button type="button" class="x" data-hsdel="1" aria-label="${esc(n)}を外す">×</button></td></tr>`}
+function hsPaint(d){$("hsBody").innerHTML=Object.entries(d.himeSk||{}).map(([n,v])=>hsRow(n,v)).join("")||'<tr><td colspan="8" class="legend">まだありません</td></tr>'}
+function hsRead(d){const o={};document.querySelectorAll("#hsBody tr[data-hime]").forEach(tr=>{const n=tr.dataset.hime,v={};
+  TROOPS.forEach(t=>{const u=num(tr.querySelector(`[data-hs="${t}u"]`).value),f=num(tr.querySelector(`[data-hs="${t}f"]`).value);if(u!=null||f!=null)v[t]={u,f}});o[n]=v});
+  if(Object.keys(o).length)d.himeSk=o;else delete d.himeSk}
+document.addEventListener("click",e=>{
+  if(e.target.id==="hsAddBtn"&&draft){const n=$("hsAdd").value;if(!n)return;hsRead(draft);draft.himeSk=draft.himeSk||{};if(!draft.himeSk[n])draft.himeSk[n]={};hsPaint(draft);touch();skSumPaint()}
+  const del=e.target.closest("[data-hsdel]");if(del&&draft){hsRead(draft);delete (draft.himeSk||{})[del.closest("tr").dataset.hime];if(draft.himeSk&&!Object.keys(draft.himeSk).length)delete draft.himeSk;hsPaint(draft);touch();skSumPaint()}});
+function skSumPaint(){const el=$("skSum");if(!el||!draft)return;const r=skOf(draft);
+  el.innerHTML="相克の合計（武将＋姫装備＋庭園）："+TROOPS.map(t=>`${t} 有利 <b>${+r[t].u.toFixed(2)}</b>・不利 <b>${+r[t].f.toFixed(2)}</b>`).join("　")+`　総計 <b>${+r.total.toFixed(2)}</b>`}
 function touch(){dirty=true;$("status").textContent="未保存の変更があります";$("status").className="status dirty";$("save").disabled=!canWrite;
   const two=Object.values(draft.generals).filter(x=>x.a===2).length;}
 function openMember(id){
@@ -330,49 +1015,172 @@ function openMember(id){
   $("status").textContent=canWrite?"変わったところだけ直して「保存」を押してください。":"閲覧のみの権限のため保存できません。";$("status").className="status";$("save").disabled=true;
   try{localStorage.setItem("meibo-who",id)}catch(e){}
 }
-$("who").addEventListener("change",()=>{const n=$("who").value.trim();const id=Object.keys(members).find(k=>members[k].name===n);if(id)openMember(id)});
+$("who").addEventListener("change",()=>{const n=$("who").value.trim();const id=Object.keys(members).find(k=>members[k].name===n);if(id&&id!==curId)openMember(id)});
 $("newMember").addEventListener("click",()=>{const n=$("who").value.trim();
   if(!n){$("status").textContent="上の欄に新しいユーザー名を入れてから「新しく追加」を押してください。";$("status").className="status dirty";return}
   if(Object.values(members).some(m=>m.name===n)){$("status").textContent="その名前はもう名簿にあります。";$("status").className="status dirty";return}
-  const id="u"+Date.now().toString(36);members[id]={name:n,generals:{},sp:{},order:9999,updatedAt:null};openMember(id);touch();});
-$("save").addEventListener("click",async()=>{
-  if(!draft||!db)return; readSimple(); $("save").disabled=true; $("status").textContent="保存中…";
-  const body={...draft,updatedAt:today(),source:"入力アプリ"};
-  try{await db.collection("members").doc(curId).set(JSON.parse(JSON.stringify(body)));dirty=false;$("status").textContent="保存しました（"+body.updatedAt+"）";$("status").className="status";}
-  catch(e){$("save").disabled=false;$("status").className="status dirty";
-    $("status").textContent=e&&e.code==="invalid_argument"?"保存できませんでした。この名簿を編集できる権限があるか確認してください。":"保存できませんでした。通信状態を確かめて、もう一度「保存」を押してください。";}
+  const id=n;members[id]={name:n,generals:{},sp:{},order:9999,updatedAt:null};openMember(id);touch();});
+/**
+ * 保存（順番待ちなら自動で再保存）。state: "saving"｜"wait"｜"ok"｜"err"
+ * サーバーは20秒まで順番待ちし、それでも空かなければ {busy:true} を返す。
+ * 通信エラーや順番待ちのときは 3秒・6秒・10秒 待って最大3回まで自動で再保存する。
+ */
+const RETRY_WAIT=[3,6,10];
+function saveWithRetry(body,onState,onOk,onErr){let tries=0;
+  const fail=(why)=>{if(tries<RETRY_WAIT.length){const w=RETRY_WAIT[tries++];let left=w;
+      onState("wait",`${why}　${left}秒後に自動で再保存します（${tries}回目／${RETRY_WAIT.length}回）`);
+      const t=setInterval(()=>{left--;if(left>0)onState("wait",`${why}　${left}秒後に自動で再保存します（${tries}回目／${RETRY_WAIT.length}回）`);else{clearInterval(t);go()}},1000)}
+    else onErr(why)};
+  const go=()=>{onState("saving",tries?`再保存中…（${tries}回目）`:"保存中…（スプシに書き込んでいます。順番待ちのときは最大20秒かかります）");
+    google.script.run.withSuccessHandler(res=>{if(res&&res.busy)fail("ほかの人が保存中のため順番待ちです。");else onOk(res)})
+      .withFailureHandler(err=>fail("通信またはサーバーのエラーで保存できませんでした"+(err&&err.message?"（"+err.message+"）":"")+"。"))
+      .saveMember(body)};
+  go()}
+function setStatus(state,txt){const el=$("status");el.textContent=txt;el.className="status "+({wait:"wait",ok:"ok",err:"err",saving:""}[state]||"")}
+$("save").addEventListener("click",()=>{
+  if(!draft||!hasGas())return; readSimple(); $("save").disabled=true;
+  const body=JSON.parse(JSON.stringify(draft)), snap=JSON.stringify(draft), id=curId;
+  saveWithRetry(body,(st,txt)=>{if(curId===id)setStatus(st,txt)},
+    res=>{body.updatedAt=res.updatedAt;body.source="入力アプリ";members[id]=body;
+      const msg="保存しました（"+res.updatedAt+"）"+(res.note?"　※"+res.note:"");
+      if(curId!==id){refreshNames();return}
+      if(JSON.stringify(draft)!==snap){refreshNames();$("save").disabled=!canWrite;setStatus("err","保存しました。ただし保存中に変えた分はまだ保存されていません。もう一度「保存」を押してください。");return}
+      dirty=false;refreshNames();openMember(id);setStatus("ok",msg)},
+    why=>{$("save").disabled=false;if(curId===id)setStatus("err","保存できませんでした。"+why+"　もう一度「保存」を押してください。")});
 });
+
+/* ---------- 名前の候補表示 ---------- */
+function attachAC(inputId,onPick){
+  const inp=$(inputId), box=$("ac-"+inputId); let sel=-1, items=[];
+  const close=()=>{box.hidden=true;inp.setAttribute("aria-expanded","false");sel=-1};
+  const show=()=>{
+    const q=inp.value.trim();
+    items=sorted().map(([,m])=>m).filter(m=>!q||m.name.toLowerCase().includes(q.toLowerCase())).slice(0,q?30:15);
+    if(!Object.keys(members).length){close();return}
+    box.innerHTML=items.length?items.map((m,i)=>{const nm=esc(m.name);const h=q?nm.replace(esc(q),"<mark>"+esc(q)+"</mark>"):nm;
+      return `<button type="button" role="option" data-i="${i}" aria-selected="${i===sel}">${h}<small>${m.power!=null?"戦力 "+m.power:""}</small></button>`}).join("")
+      :`<div class="none">「${esc(q)}」を含む名前は見つかりません</div>`;
+    box.hidden=false;inp.setAttribute("aria-expanded","true");};
+  const pick=i=>{const m=items[i];if(!m)return;inp.value=m.name;close();onPick(m.name)};
+  inp.addEventListener("input",()=>{sel=-1;show()});
+  inp.addEventListener("focus",show);
+  inp.addEventListener("blur",()=>setTimeout(close,150));
+  inp.addEventListener("keydown",e=>{if(box.hidden)return;
+    if(e.key==="ArrowDown"){sel=Math.min(sel+1,items.length-1);show();e.preventDefault()}
+    else if(e.key==="ArrowUp"){sel=Math.max(sel-1,0);show();e.preventDefault()}
+    else if(e.key==="Enter"){if(sel<0&&items.length===1)sel=0;if(sel>=0){pick(sel);e.preventDefault()}}
+    else if(e.key==="Escape")close();});
+  box.addEventListener("pointerdown",e=>e.preventDefault());
+  box.addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(b){pick(+b.dataset.i);inp.blur()}});
+}
+attachAC("who",n=>{if(members[n])openMember(n)});
+attachAC("host",()=>renderRally());
 
 /* ---------- 名簿 ---------- */
 function stats(m){const g=Object.values(m.generals||{});return{two:g.filter(x=>x.a===2).length,lv:g.reduce((a,x)=>a+(x.a===2&&x.s?x.s:0),0)}}
 function sorted(){return Object.entries(members).sort((a,b)=>(b[1].power||0)-(a[1].power||0))}
 function renderRoster(){
-  const q=$("q").value.trim(), fg=$("fGen").value, fm=$("fMin").value;
-  const list=sorted().filter(([,m])=>{if(q&&!m.name.includes(q))return false;if(!fg)return true;const e=(m.generals||{})[fg];if(!e)return false;
+  const q=$("q").value.trim(), fg=$("fGen").value, fm=$("fMin").value, fc=$("fClan").value;
+  const list=sorted().filter(([,m])=>{if(q&&!m.name.includes(q))return false;if(fc){const c=clanOf(m.name);if(fc==="__none"?c:c!==fc)return false}if(!fg)return true;const e=(m.generals||{})[fg];if(!e)return false;
     if(fm==="2")return e.a===2;if(fm==="2-12")return e.a===2&&e.s===12;return true});
   $("rosterKpi").innerHTML=`<span><b>${list.length}</b>人 表示</span><span><b>${Object.keys(members).length}</b>人 登録</span>`;
-  $("rosterBody").innerHTML=list.length?list.map(([id,m])=>{const s=stats(m);return `<tr data-id="${id}"><td>${esc(m.name)}</td><td class="n">${m.power??"―"}</td><td class="n">${m.rally!=null?Number(m.rally).toLocaleString():"―"}</td><td class="n">${s.two}</td><td class="n">${s.lv}</td><td>${m.source==="スプシ取込"?'<span class="pill old">取込</span>':'<span class="pill new">'+esc(m.updatedAt)+"</span>"}</td></tr>`}).join("")
-    :`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">${Object.keys(members).length?"条件に合う人がいません":"名簿がまだ空です。「入力」画面から最初の1人を追加してください。"}</td></tr>`;
+  shownIds=list.map(([id])=>id); for(const id of [...selected]) if(!members[id]) selected.delete(id); updateSel();
+  $("rosterBody").innerHTML=list.length?list.map(([id,m])=>{const s=stats(m);return `<tr data-id="${id}"><td class="ck"><input type="checkbox" data-sel="${esc(id)}" ${selected.has(id)?"checked":""} aria-label="${esc(m.name)}を選ぶ"></td><td><button type="button" class="linkbtn" data-view="${esc(id)}">${esc(m.name)}</button></td><td><button type="button" class="editbtn" data-edit="${esc(id)}">編集</button></td><td>${clanOf(m.name)?esc(clanOf(m.name)):'<span style="color:var(--muted)">未所属</span>'}</td><td class="n">${m.power??"―"}</td><td class="n">${m.rally!=null?Number(m.rally).toLocaleString():"―"}</td><td class="n">${s.two}</td><td class="n">${s.lv}</td><td>${m.source==="スプシ取込"?'<span class="pill old">取込</span>':'<span class="pill new">'+esc(m.updatedAt)+"</span>"}</td></tr>`}).join("")
+    :`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">${Object.keys(members).length?"条件に合う人がいません":"名簿がまだ空です。「入力」画面から最初の1人を追加してください。"}</td></tr>`;
 }
-$("q").addEventListener("input",renderRoster);$("fGen").addEventListener("change",renderRoster);$("fMin").addEventListener("change",renderRoster);
-$("rosterBody").addEventListener("click",e=>{const tr=e.target.closest("tr[data-id]");if(!tr)return;openMember(tr.dataset.id);location.hash="input"});
+$("q").addEventListener("input",renderRoster);$("fGen").addEventListener("change",renderRoster);$("fMin").addEventListener("change",renderRoster);$("fClan").addEventListener("change",renderRoster);
+$("rosterBody").addEventListener("click",e=>{
+  const ck=e.target.closest("[data-sel]");if(ck){ck.checked?selected.add(ck.dataset.sel):selected.delete(ck.dataset.sel);updateSel();return}
+  if(e.target.closest("td.ck"))return;
+  const ed=e.target.closest("[data-edit]");if(ed){openMember(ed.dataset.edit);go("input");return}
+  const tr=e.target.closest("tr[data-id]");if(!tr)return;openViewer(tr.dataset.id)});
+let selected=new Set(), shownIds=[], delArmedM=false;
+function updateSel(){const n=selected.size;
+  $("selInfo").textContent=n?`${n}人を選択中`:"左のチェックで選んだ人を、まとめて削除できます。";
+  $("delSel").disabled=!n; $("setClanBtn").disabled=!n; if(!n){delArmedM=false;$("delSel").textContent="選んだ人を削除"}
+  const all=shownIds.length&&shownIds.every(id=>selected.has(id));$("selAll").checked=!!all;$("selAll").indeterminate=!all&&shownIds.some(id=>selected.has(id));}
+$("selAll").addEventListener("change",()=>{if($("selAll").checked)shownIds.forEach(id=>selected.add(id));else shownIds.forEach(id=>selected.delete(id));
+  document.querySelectorAll("#rosterBody [data-sel]").forEach(c=>c.checked=selected.has(c.dataset.sel));updateSel()});
+const pw=()=>$("admPw").value;
+let undoStack=[];
+function pwFail(el,btn,label){return err=>{if(btn){btn.disabled=false;btn.textContent=label}el.textContent=(err&&err.message)||"うまくいきませんでした。もう一度押してください。"}}
+$("delSel").addEventListener("click",()=>{const names=[...selected].map(id=>members[id]&&members[id].name).filter(Boolean);if(!names.length)return;
+  if(!pw()){$("delMsg").textContent="削除するには管理パスワードを入れてください。";$("admPw").focus();return}
+  if(!delArmedM){delArmedM=true;$("delSel").textContent=`もう一度押すと${names.length}人を削除`;$("delMsg").textContent="アプリ・入力シート1・2・一族メンバー表・編成からすべて消えます。削除の前にバックアップを自動で作ります。";return}
+  delArmedM=false;const btn=$("delSel");btn.disabled=true;btn.textContent="削除中…（バックアップ作成中）";
+  google.script.run.withSuccessHandler(res=>{
+      names.forEach(n=>{delete members[n]});if(curId&&!members[curId]){curId=null;draft=null}
+      selected.clear();btn.textContent="選んだ人を削除";
+      if(res.batch){undoStack.push({batch:res.batch,names});$("undoDel").hidden=false}
+      $("delMsg").innerHTML=`${res.deleted}人を削除しました。間違えたときは「元に戻す」か Ctrl+Z。`+(res.backup?`（削除前のバックアップ：<a href="${esc(res.backup.url)}" target="_blank" rel="noopener">${esc(res.backup.name)}</a>）`:"");
+      refreshNames();renderRoster();loadFormation();})
+    .withFailureHandler(pwFail($("delMsg"),btn,"選んだ人を削除")).deleteMembers(names,pw())});
+function undoLastDelete(){const u=undoStack[undoStack.length-1];if(!u)return false;
+  if(!pw()){$("delMsg").textContent="元に戻すには管理パスワードを入れてください。";go("roster");$("admPw").focus();return true}
+  const b=$("undoDel");b.disabled=true;b.textContent="元に戻しています…";
+  google.script.run.withSuccessHandler(res=>{undoStack.pop();b.disabled=false;b.textContent="元に戻す（Ctrl+Z）";b.hidden=!undoStack.length;
+      $("delMsg").textContent=`元に戻しました：${res.restored.join("、")}`;loadAll()})
+    .withFailureHandler(pwFail($("delMsg"),b,"元に戻す（Ctrl+Z）")).undoDelete(u.batch,pw());return true}
+$("undoDel").addEventListener("click",undoLastDelete);
+$("setClanBtn").addEventListener("click",()=>{const names=[...selected].map(id=>members[id]&&members[id].name).filter(Boolean);if(!names.length)return;
+  const c=$("bulkClan").value, b=$("setClanBtn");b.disabled=true;b.textContent="設定中…";
+  google.script.run.withSuccessHandler(r=>{b.disabled=false;b.textContent="一族を設定";form=r.formation||form;selected.clear();
+      $("delMsg").textContent=c?`${names.length}人を${c}に設定しました（ほかの一族の編成からは外しました）。`:`${names.length}人をどの一族からも外しました。`;afterFormation();renderRoster()})
+    .withFailureHandler(pwFail($("delMsg"),b,"一族を設定")).setClan(names,c)});
+$("bkNow").addEventListener("click",()=>{if(!pw()){$("bkMsg").textContent="管理パスワードを入れてください。";$("admPw").focus();return}
+  const b=$("bkNow");b.disabled=true;b.textContent="作成中…";
+  google.script.run.withSuccessHandler(r=>{b.disabled=false;b.textContent="今すぐバックアップ";$("bkMsg").innerHTML=`作成しました：<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>`})
+    .withFailureHandler(pwFail($("bkMsg"),b,"今すぐバックアップ")).createBackup(pw())});
+$("bkList").addEventListener("click",()=>{if(!pw()){$("bkMsg").textContent="管理パスワードを入れてください。";$("admPw").focus();return}
+  google.script.run.withSuccessHandler(r=>{$("bkMsg").textContent=(r.auto?"毎日の自動バックアップ：ON":"毎日の自動バックアップ：OFF（コード.gs の setupDailyBackup を1回実行するとON）")+"　戻すときは、そのファイルを開いて中身をコピーしてください。";
+      $("bkUl").innerHTML=r.list.length?r.list.map(x=>`<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a></li>`).join(""):"<li>まだありません。</li>"})
+    .withFailureHandler(pwFail($("bkMsg"))).listBackups(pw())});
 
 /* ---------- 集結（仮ルール） ---------- */
-let keySet=new Set(GENS.find(g=>g[0]==="全員にお薦め")[1].map(x=>x[0]));
+let keySet=new Set();   // 最初はどの武将も選ばない
 function buildChips(){$("keyChips").innerHTML=ALLGEN.filter(g=>g.s).map(g=>`<button type="button" class="chip" data-n="${g.n}" aria-pressed="${keySet.has(g.n)}">${g.n}</button>`).join("");}
+$("keyAll").addEventListener("click",()=>{ALLGEN.filter(g=>g.s).forEach(g=>keySet.add(g.n));buildChips();renderRally()});
+$("keyNone").addEventListener("click",()=>{keySet.clear();buildChips();renderRally()});
 $("keyChips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;const n=b.dataset.n;keySet.has(n)?keySet.delete(n):keySet.add(n);b.setAttribute("aria-pressed",keySet.has(n));renderRally()});
-["host","rType","rN","w1","w2","w3"].forEach(id=>$(id).addEventListener("input",renderRally));
+["host","rClan","rType","rN","w1","w2","w3","w4"].forEach(id=>$(id).addEventListener("input",()=>{renderRally();if(curView==="plan"&&plan)renderPlanView()}));
 function genVal(e){if(!e)return 0;if(e.a===2)return .6+.4*((e.s||10)-1)/11;if(e.a===1)return .4;return .15}
-function scoreOf(m,type,maxP){
-  const keys=[...keySet];const g=keys.length?keys.reduce((a,n)=>a+genVal((m.generals||{})[n]),0)/keys.length:0;
-  const tl=type?[type]:TROOPS;const gr={"初":1/3,"中":2/3,"上":1};
-  const t=tl.reduce((a,k)=>{const x=(m.troops||{})[k]||{};return a+((((x.lv||0)+(x.lvPlus?.5:0))/13)*.7+(gr[x.gunryaku]||0)*.3)},0)/tl.length;
-  const p=maxP?(m.power||0)/maxP:0;
-  const w1=+$("w1").value,w2=+$("w2").value,w3=+$("w3").value,W=(w1+w2+w3)||1;
-  return{total:100*(w1*g+w2*Math.min(t,1)+w3*p)/W,parts:[w1*g/W,w2*Math.min(t,1)/W,w3*p/W],missing:keys.filter(n=>{const e=(m.generals||{})[n];return!e||e.a!==2})};
+/* 点数：①守護霊Lv合計 ②軍略の進度 ③相克の合計（名簿内の最高値を満点にして比べる） */
+const _met=new WeakMap();
+function metOf(m,type){let c=_met.get(m);if(!c){c={};_met.set(m,c)}const key=type||"*";if(c[key])return c[key];
+  const gs=Object.values(m.generals||{});
+  const g=gs.reduce((a,x)=>a+(x&&x.a===2&&x.s?x.s:0),0);
+  const tl=type?[type]:TROOPS;
+  const k=tl.reduce((a,t)=>a+(+(((m.troops||{})[t]||{}).shindo)||0),0);
+  const r=skOf(m), sk=type?r[type].u+r[type].f:r.total;
+  return c[key]={g,k,s:sk}}
+/* 相克の合計：殲滅チームシートの計算式と同じ
+   有利[兵種] = 織田信長[兵種]＋真田幸村[兵種]＋井伊直虎[兵種]＋細川藤孝＋（馬:甲斐姫／弓:赤井直正／歩:ねね）＋姫装備有利[兵種]＋庭園有利
+   不利[兵種] = 北条早雲[兵種]＋真田幸村[兵種]＋豊臣秀吉[兵種]＋池田恒興＋（馬:伊達政宗／弓:斎藤利三／歩:ねね）＋姫装備不利[兵種]＋庭園不利
+   相克の合計 = 3兵種の有利＋不利 */
+const SK_U={馬:"甲斐姫",弓:"赤井直正",歩:"ねね"}, SK_F={馬:"伊達政宗",弓:"斎藤利三",歩:"ねね"};
+/** 姫装備の相克：姫ごとの入力があればその合計（himeSet を渡すとその姫だけ）、なければ「姫装備」の合計欄 */
+function himeSkOf(m,himeSet){const hs=m.himeSk;if(!hs||!Object.keys(hs).length)return (m.sk||{}).hime||{};
+  const o={};TROOPS.forEach(t=>o[t]={u:0,f:0});Object.entries(hs).forEach(([n,v])=>{if(himeSet&&!himeSet.has(n))return;TROOPS.forEach(t=>{const x=(v||{})[t]||{};o[t].u+=+x.u||0;o[t].f+=+x.f||0})});return o}
+function skOf(m,himeSet){const G=m.generals||{}, X=(n,l)=>{const e=G[n];return e&&e.x&&e.x[l]!=null?(+e.x[l]||0):0};
+  const sk=m.sk||{}, h=himeSkOf(m,himeSet), te=sk.teien||{}, out={total:0};
+  TROOPS.forEach(t=>{const L=t+"相克",hh=h[t]||{};
+    const u=X("織田信長",L)+X("真田幸村",L)+X("井伊直虎",L)+X("細川藤孝","相克")+X(SK_U[t],"相克")+(+hh.u||0)+(+te.u||0);
+    const f=X("北条早雲",L)+X("真田幸村",L)+X("豊臣秀吉",L)+X("池田恒興","相克")+X(SK_F[t],"相克")+(+hh.f||0)+(+te.f||0);
+    out[t]={u,f};out.total+=u+f});
+  return out}
+function metMax(type){const mx={g:0,k:0,s:0};Object.values(members).forEach(m=>{const t=metOf(m,type);mx.g=Math.max(mx.g,t.g);mx.k=Math.max(mx.k,t.k);mx.s=Math.max(mx.s,t.s)});return mx}
+function scoreOf(m,type,maxP,mx){
+  mx=mx||metMax(type);const t=metOf(m,type);
+  const keys=[...keySet];const kg=keys.length?keys.reduce((a,n)=>a+genVal((m.generals||{})[n]),0)/keys.length:0;
+  const r=[mx.g?t.g/mx.g:0,mx.k?t.k/mx.k:0,mx.s?t.s/mx.s:0,kg];
+  const w=["w1","w2","w3","w4"].map(id=>+$(id).value), W=w.reduce((a,b)=>a+b,0)||1;
+  const parts=r.map((v,i)=>w[i]*v/W);
+  return{total:100*parts.reduce((a,b)=>a+b,0),parts,met:t,missing:keys.filter(n=>{const e=(m.generals||{})[n];return!e||e.a!==2})};
 }
+function cmpScore(a,b){return b.total-a.total||b.met.g-a.met.g||b.met.k-a.met.k||b.met.s-a.met.s}
 function renderRally(){
-  const arr=Object.entries(members);if(!arr.length){$("rank").innerHTML='<div class="empty">名簿のデータが読み込まれると、ここに候補が並びます。</div>';$("hostCard").innerHTML="";return}
+  const rc=$("rClan").value, rcSet=rc?new Set(((form.rosters||{})[rc]||{}).members||[]):null;
+  const arr=Object.entries(members).filter(([,m])=>!rcSet||rcSet.has(m.name));if(!arr.length){$("rank").innerHTML='<div class="empty">名簿のデータが読み込まれると、ここに候補が並びます。</div>';$("hostCard").innerHTML="";return}
   const type=$("rType").value, N=Math.max(1,+$("rN").value||10), hostName=$("host").value.trim();
   const maxP=Math.max(...arr.map(([,m])=>m.power||0));
   const hostE=arr.find(([,m])=>m.name===hostName);
@@ -380,32 +1188,731 @@ function renderRally(){
   const hostMiss=hostE?new Set(scoreOf(hostE[1],type,maxP).missing):null;
   const list=arr.filter(([id])=>!hostE||id!==hostE[0]).map(([id,m])=>{const s=scoreOf(m,type,maxP);
     if(hostMiss){const cover=[...hostMiss].filter(n=>{const e=(m.generals||{})[n];return e&&e.a===2}).length;s.cover=cover}return{id,m,s}})
-    .sort((a,b)=>b.s.total-a.s.total).slice(0,Math.max(N+10,20));
+    .sort((a,b)=>cmpScore(a.s,b.s)).slice(0,Math.max(N+10,20));
   $("rank").innerHTML=list.map((x,i)=>`<div class="cand ${i<N?"in":""}"><span class="no">${i+1}</span><span class="nm">${esc(x.m.name)}${x.m.source==="スプシ取込"?' <span class="pill old">古い値</span>':""}</span><span class="sc">${Math.round(x.s.total)}</span>
-    <div class="bars" aria-hidden="true"><i class="b1" style="width:${x.s.parts[0]*100}%"></i><i class="b2" style="width:${x.s.parts[1]*100}%"></i><i class="b3" style="width:${x.s.parts[2]*100}%"></i></div>
-    <div class="miss">${hostMiss?`集結主に足りない武将を <b>${x.s.cover}</b> 人補える　`:""}重要武将の未育成 ${x.s.missing.length}人</div></div>`).join("")
-    +`<p class="legend">上位 ${N} 人（枠付き）が候補です。点数は仮ルールによる目安です。</p>`;
+    <div class="bars" aria-hidden="true">${x.s.parts.map((p,k)=>`<i class="b${k+1}" style="width:${p*100}%"></i>`).join("")}</div>
+    <div class="miss">守護霊Lv計 <b>${x.s.met.g}</b>・軍略 <b>${x.s.met.k}</b>・相克 <b>${+x.s.met.s.toFixed(1)}</b>　${hostMiss?`集結主に足りない武将を <b>${x.s.cover}</b> 人補える　`:""}${keySet.size?`重要武将の未育成 ${x.s.missing.length}人`:""}</div></div>`).join("")
+    +`<p class="legend">上位 ${N} 人（枠付き）が候補です。軍略は「進度（LV合計値）」、相克は武将ごとの相克欄を足した値です（兵種を選ぶとその兵種の分だけ）。</p>`;
 }
 
-/* ---------- データ接続 ---------- */
-function refreshNames(){$("names").innerHTML=sorted().map(([,m])=>`<option value="${esc(m.name)}">`).join("");}
-async function start(){
+/* ---------- 一族メンバー表と集結編成 ---------- */
+let form={clans:[],rosters:{},plans:[]}, pClan="", plan=null, rosterDraft=null, planDirty=false, leaveArmed=false, delArmed=false;
+const RMAX=25;
+let formLoaded=false;
+function loadFormation(){
+  if(!hasGas())return;formLoaded=false;
+  google.script.run.withSuccessHandler(f=>{form=f||form;formLoaded=true;afterFormation()})
+    .withFailureHandler(()=>{$("pMsg").textContent="編成データを読み込めませんでした。「最新のデータに更新」を押してください。";setLd("err","名簿は読み込めましたが、編成データを読み込めませんでした。「最新のデータに更新」を押してください")}).getFormation();
+}
+function afterFormation(){
+  const clans=form.clans||[];
+  if(!pClan)pClan=clans[0]||"";
+  $("pClan").innerHTML=clans.map(c=>`<option ${c===pClan?"selected":""}>${esc(c)}</option>`).join("");
+  const rv=$("rClan").value;
+  $("rClan").innerHTML='<option value="">全員</option>'+clans.map(c=>`<option ${c===rv?"selected":""}>${esc(c)}</option>`).join("");
+  rosterDraft=null; if(!planDirty)plan=null; renderPlanView();
+  const cnt=c=>(((form.rosters||{})[c]||{}).members||[]).length;
+  const fv=$("fClan").value;
+  $("fClan").innerHTML='<option value="">全員</option>'+clans.map(c=>`<option value="${esc(c)}" ${c===fv?"selected":""}>${esc(c)}（${cnt(c)}人）</option>`).join("")+`<option value="__none" ${fv==="__none"?"selected":""}>未所属</option>`;
+  const bv=$("bulkClan").value;
+  $("bulkClan").innerHTML=clans.map(c=>`<option value="${esc(c)}" ${c===bv?"selected":""}>${esc(c)}（${cnt(c)}/50人）</option>`).join("")+`<option value="" ${bv===""&&$("bulkClan").options.length?"selected":""}>所属なし（どの一族からも外す）</option>`;
+  if(curView==="roster")renderRoster();
+  if(curView==="view")renderView();
+}
+function roster(){return rosterDraft||structuredClone((form.rosters||{})[pClan]||{clan:pClan,members:[],confirmed:false})}
+function clanOf(name){for(const c in (form.rosters||{})){if((form.rosters[c].members||[]).includes(name))return c}return ""}
+function newPlan(){return{clan:pClan,name:"",oldName:"",type:"",size:8,rallies:Array.from({length:5},(_,i)=>({label:"集結"+(i+1),host:"",members:[]}))}}
+function plansOf(){return(form.plans||[]).filter(p=>p.clan===pClan)}
+function assigned(){const s=new Set();if(plan)plan.rallies.forEach(r=>{if(r.host)s.add(r.host);r.members.forEach(m=>s.add(m))});return s}
+let _mx=null;
+function pS(name){const m=members[name];if(!m)return null;const ty=(plan&&plan.type)||"";if(!_mx||_mx.ty!==ty)_mx={ty,v:metMax(ty)};return scoreOf(m,ty,0,_mx.v)}
+function pScore(name){const s=pS(name);return s?s.total:0}
+function pSort(arr){return arr.map(n=>({n,s:pS(n)})).sort((a,b)=>!a.s?1:!b.s?-1:cmpScore(a.s,b.s)).map(x=>x.n)}
+function pLabel(n){const s=pS(n);return s?`${n}　${Math.round(s.total)}点（守${s.met.g}・軍${s.met.k}・相${+s.met.s.toFixed(1)}）`:n}
+function markDirtyKpi(){planDirty=true;const k=$("pKpi");if(!k.querySelector(".pill.old"))k.insertAdjacentHTML("beforeend",'<span class="pill old">未保存の変更あり</span>')}
+function rallyCardHtml(rl,i,ctx){const {pool,size,opts}=ctx;let kbCount=0;
+
+    const all=[rl.host,...rl.members].filter(Boolean), cnt=all.length, uc=unitCount(all), room=uc<size;
+    const avg=cnt?all.reduce((a,n)=>a+pScore(n),0)/cnt:0;
+    const st=cnt>1?kaburiStats(all,size):{over:[],used:[],short:[]}, kb=st.over; kbCount=kb.length;
+    const gs=n=>{if(!n)return"";const l=gdListOf(n),on=new Set(sendsOf(n));
+      return `<span class="gdsel" role="group" aria-label="${esc(n)}が出す軍団">${l.map((gd,k)=>`<button type="button" data-gsend="${k}" data-who="${esc(n)}" aria-pressed="${on.has(k)}" class="${gdDefined(gd)?"":"emp"}" title="${gdDefined(gd)?[...gdGens(gd)].join("、"):"この軍団はまだ入力されていません"}">${k+1}</button>`).join("")}</span>`};
+    const cb=n=>{if(!n||!(rl.conds||[]).length)return"";const f=condFit(n,rl);return `<span class="cm ${f.met===f.total?"ok":""}" title="${esc(f.miss.join("、")||"条件をすべてクリア")}">${f.met}/${f.total}</span>`};
+    const html=`<div class="rcard ${cnt===1?"warn":kb.length?"soft":""}" data-i="${i}">
+      <div class="rc-a">
+        <div class="rhead"><input value="${esc(rl.label)}" data-f="label" aria-label="組の名前"><span class="rsc" title="平均点">${cnt?Math.round(avg):"―"}</span><button type="button" class="x" data-del="1" aria-label="この組を削除">×</button></div>
+        <div class="rfoot ${cnt===1?"bad":""}">軍団 ${uc}/${size}・${cnt}人${cnt===1?"　2人以上にしてください":""}</div>
+        <button type="button" class="ctog" data-ctog="1" aria-expanded="${openConds.has(i)}">条件 ${(rl.conds||[]).length}件 ${openConds.has(i)?"△":"▽"}</button>
+      </div>
+      <div class="rc-b">
+        <div class="rrow"><span class="tag">集結主</span><select data-f="host" aria-label="${esc(rl.label)}の集結主">${opts(rl.host)}</select>${rl.host?gs(rl.host):""}${cb(rl.host)}</div>
+        ${rl.members.map((m,j)=>`<div class="rrow"><span class="tag p">参加</span><span class="nm" title="${esc(pLabel(m))}">${esc(m)} <small>${Math.round(pScore(m))}</small></span>${gs(m)}${cb(m)}<button type="button" class="x" data-rm="${j}" aria-label="${esc(m)}を外す">×</button></div>`).join("")}
+        ${room?`<div class="rrow"><span class="tag p">＋</span><select data-f="add" aria-label="${esc(rl.label)}に参加者を追加">${opts("")}</select></div>`:""}
+      </div>
+      <div class="rc-c">${cnt>1?kaburiHtml(st,i,otherStats(all)):'<span class="legend">2人以上入れると、被り・不足が出ます。</span>'}</div>
+      ${openConds.has(i)?`<div class="rc-d">${condPanelHtml(rl,i,pool,room)}</div>`:""}
+    </div>`;
+  return {html,kb:kbCount};
+}
+let rallyCtx=null;
+function renderPlanView(){
+  if(!pClan){$("pClanKpi").textContent="一族の情報を読み込み中…";return}
+  const r=roster();
+  $("pClanKpi").innerHTML=`<span><b>${r.members.length}</b>/50人</span><span>${r.confirmed?'<span class="pill new">確定</span>':'<span class="pill old">未確定</span>'}</span>${r.updatedAt?`<span>保存 ${esc(r.updatedAt)}</span>`:""}`;
+  $("rConfirm").checked=!!r.confirmed;
+  $("rosterAddRow").hidden=!!r.confirmed;
+  $("rosterChips").innerHTML=r.members.length?r.members.map((n,i)=>`<span class="chip m">${esc(n)}${r.confirmed?"":`<button type="button" class="x" data-ri="${i}" aria-label="${esc(n)}を外す">×</button>`}</span>`).join(""):'<span class="legend">まだ誰も登録されていません。上の欄から追加してください。</span>';
+  const ps=plansOf();
+  if(!plan){if(ps.length){plan=structuredClone(ps[0]);plan.oldName=plan.name}else plan=newPlan();planDirty=false;planHist=[];planSnap=JSON.stringify(plan)}
+  $("pSel").innerHTML=ps.map(p=>`<option value="${esc(p.name)}" ${plan.oldName===p.name?"selected":""}>${esc(p.name)}</option>`).join("")+`<option value="__new" ${!plan.oldName?"selected":""}>＋ 新しい編成</option>`;
+  $("pName").value=plan.name||"";$("pType").value=plan.type||"";$("pSize").value=String(plan.size||8);
+  _mx=null;
+  const asg=assigned(), pool=pSort(r.members.filter(n=>!asg.has(n))), size=plan.size||8;
+  const opts=cur=>`<option value="">${cur?"（外す）":"選ぶ（点数の高い順）"}</option>`+(cur?`<option value="${esc(cur)}" selected>${esc(pLabel(cur))}</option>`:"")+pool.map(n=>`<option value="${esc(n)}">${esc(pLabel(n))}</option>`).join("");
+  let kbTotal=0;
+  rallyCtx={pool,size,opts};
+  $("pRallies").innerHTML=plan.rallies.map((rl,i)=>{const c=rallyCardHtml(rl,i,rallyCtx);kbTotal+=c.kb;
+    return `<div class="rline" data-li="${i}">${c.html}<div class="gpanels">${gpanelsHtml(rl,i)}</div></div>`}).join("");
+  $("pAdd").disabled=plan.rallies.length>=RMAX;
+  $("pAdd").textContent=plan.rallies.length>=RMAX?"集結は25組までです":"集結を1組追加";
+  $("pPool").innerHTML=pool.length?pool.map(n=>`<span class="chip" title="${esc(pLabel(n))}">${esc(n)} <small>${Math.round(pScore(n))}</small></span>`).join(""):(r.members.length?'<span class="legend">メンバー表の全員が組に入っています。</span>':'<span class="legend">先に「一族メンバー表」にメンバーを登録してください。</span>');
+  $("pKpi").innerHTML=`<span><b>${plan.rallies.length}</b>組</span><span><b>${asg.size}</b>/${r.members.length}人 配置済み</span>${kbTotal?`<span class="pill" style="background:var(--warn-soft);color:var(--warn)">被り ${kbTotal}件</span>`:""}${planDirty?'<span class="pill old">未保存の変更あり</span>':""}`;
+  $("pDel").disabled=!plan.oldName;
+}
+let planHist=[], planSnap=null;
+function pTouch(){if(planSnap){planHist.push(planSnap);if(planHist.length>50)planHist.shift()}planDirty=true;renderPlanView();planSnap=JSON.stringify(plan)}
+function undoPlan(){if(!planHist.length)return false;plan=JSON.parse(planHist.pop());planSnap=JSON.stringify(plan);planDirty=true;renderPlanView();$("pMsg").textContent="1つ前に戻しました。";return true}
+
+$("pClan").addEventListener("change",()=>{
+  if(planDirty&&!leaveArmed){leaveArmed=true;$("pMsg").textContent="未保存の編成があります。もう一度一族を選ぶと、保存せずに切り替えます。";$("pClan").value=pClan;return}
+  leaveArmed=false;pClan=$("pClan").value;rosterDraft=null;plan=null;planDirty=false;$("pText").hidden=true;$("pMsg").textContent="";$("rMsg").textContent="";renderPlanView()});
+
+/* メンバー表 */
+function rosterChanged(msg){$("rMsg").textContent=(msg||"")+"未保存の変更があります。「メンバー表を保存」を押してください。";renderPlanView()}
+$("rosterChips").addEventListener("click",e=>{const b=e.target.closest("[data-ri]");if(!b)return;const r=roster();r.members.splice(+b.dataset.ri,1);rosterDraft=r;rosterChanged()});
+$("rConfirm").addEventListener("change",()=>{const r=roster();r.confirmed=$("rConfirm").checked;rosterDraft=r;rosterChanged()});
+(function(){const inp=$("radd"),box=$("ac-radd");let items=[];
+  const close=()=>{box.hidden=true};
+  const show=()=>{const q=inp.value.trim(),r=roster();
+    items=sorted().map(([,m])=>m.name).filter(n=>!r.members.includes(n)&&(!q||n.toLowerCase().includes(q.toLowerCase()))).slice(0,q?30:15);
+    box.innerHTML=items.length?items.map((n,i)=>{const c=clanOf(n);return `<button type="button" data-i="${i}">${esc(n)}<small>${c?"現在："+esc(c):"一族なし"}</small></button>`}).join(""):'<div class="none">候補がありません</div>';
+    box.hidden=false};
+  inp.addEventListener("input",show);inp.addEventListener("focus",show);inp.addEventListener("blur",()=>setTimeout(close,150));
+  box.addEventListener("pointerdown",e=>e.preventDefault());
+  box.addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(!b)return;const n=items[+b.dataset.i];const r=roster();
+    if(r.members.length>=50){$("rMsg").textContent="1つの一族は50人までです。";close();return}
+    r.members.push(n);rosterDraft=r;inp.value="";close();inp.blur();
+    const c=clanOf(n);rosterChanged(c&&c!==pClan?`${n} は保存すると「${c}」から外れます。`:"")});
+})();
+$("rSave").addEventListener("click",()=>{const r=roster();$("rSave").disabled=true;$("rMsg").textContent="保存中…";
+  google.script.run.withSuccessHandler(f=>{$("rSave").disabled=false;form=f;rosterDraft=null;$("rMsg").textContent="メンバー表を保存しました。";renderPlanView()})
+    .withFailureHandler(err=>{$("rSave").disabled=false;$("rMsg").textContent="保存できませんでした："+((err&&err.message)||"もう一度押してください。")}).saveRoster(r)});
+
+/* 編成 */
+$("pSel").addEventListener("change",()=>{const v=$("pSel").value;
+  if(planDirty&&!leaveArmed){leaveArmed=true;$("pMsg").textContent="未保存の編成があります。もう一度選ぶと、保存せずに切り替えます。";$("pSel").value=plan.oldName||"__new";return}
+  leaveArmed=false;
+  if(v==="__new")plan=newPlan();else{plan=structuredClone(plansOf().find(p=>p.name===v));plan.oldName=v}
+  planHist=[];planSnap=JSON.stringify(plan);
+  planDirty=false;$("pText").hidden=true;$("pMsg").textContent="";renderPlanView()});
+$("pName").addEventListener("input",()=>{plan.name=$("pName").value.trim();markDirtyKpi()});
+$("pType").addEventListener("change",()=>{plan.type=$("pType").value;pTouch()});
+$("pSize").addEventListener("change",()=>{plan.size=+$("pSize").value;
+  let moved=0;plan.rallies.forEach(r=>{while(unitCount([r.host,...r.members].filter(Boolean))>plan.size&&r.members.length){const n=r.members.pop();if(plan.sends)delete plan.sends[n];moved++}});
+  if(moved)$("pMsg").textContent=`上限を超えた${moved}人を組から外しました。`;pTouch()});
+$("pRallies").addEventListener("input",e=>{if(e.target.dataset.f!=="label")return;const c=e.target.closest(".rcard");plan.rallies[+c.dataset.i].label=e.target.value;markDirtyKpi()});
+$("pRallies").addEventListener("change",e=>{const c=e.target.closest(".rcard");if(!c)return;const rl=plan.rallies[+c.dataset.i],f=e.target.dataset.f;
+  const fit=()=>{while(unitCount([rl.host,...rl.members].filter(Boolean))>(plan.size||8)&&rl.members.length){const n=rl.members.pop();if(plan.sends)delete plan.sends[n]}};
+  if(f==="host"){rl.host=e.target.value;fit();pTouch()}
+  else if(f==="add"&&e.target.value){rl.members.push(e.target.value);fit();pTouch()}});
+$("pRallies").addEventListener("change",e=>{const el=e.target.closest("[data-cf]");if(!el)return;const c=el.closest(".rcard"),i=+c.dataset.i,st=condForm[i];
+  st[el.dataset.cf]=el.value;
+  if(el.dataset.cf==="c"){const tg=cTargets(st.c);st.t=tg.length?tg[0][0]:"";st.f=cFields(st.c,st.t)[0][0];st.v=""}
+  if(el.dataset.cf==="t"){const fs=cFields(st.c,st.t);if(!fs.some(f=>f[0]===st.f))st.f=fs[0][0]}
+  if(el.dataset.cf==="c"||el.dataset.cf==="t"||el.dataset.cf==="f"){const vo=cValOpts(st.c,st.f);st.v=vo?vo[0][0]:""}
+  if(el.dataset.cf!=="v")c.querySelector(".cform").innerHTML=cFormHtml(i)});
+$("pRallies").addEventListener("click",e=>{const c=e.target.closest(".rcard");if(!c)return;const i=+c.dataset.i;
+  if(e.target.closest("[data-ktog]")){openKab.has(i)?openKab.delete(i):openKab.add(i);refreshRallyCard(i);return}
+  if(e.target.closest("[data-ctog]")){openConds.has(i)?openConds.delete(i):openConds.add(i);renderPlanView();return}
+  if(e.target.closest("[data-cadd]")){const st=condForm[i];const vEl=c.querySelector('[data-cf="v"]');const v=parseFloat(vEl?vEl.value:st.v);
+    if(isNaN(v)){$("pMsg").textContent="条件の値を入れてください。";vEl&&vEl.focus();return}
+    const rl=plan.rallies[i];rl.conds=rl.conds||[];rl.conds.push({c:st.c,t:st.t,f:st.f,v});pTouch();return}
+  const cd=e.target.closest("[data-cdel]");if(cd){plan.rallies[i].conds.splice(+cd.dataset.cdel,1);pTouch();return}
+  const cp=e.target.closest("[data-cpick]");if(cp){const rl=plan.rallies[i],n=cp.dataset.cpick;if(!rl.host)rl.host=n;else rl.members.push(n);pTouch();return}
+  if(e.target.closest("[data-ccopy]")){const ks=plan.rallies[i].conds||[];plan.rallies.forEach((r,j)=>{if(j!==i)r.conds=JSON.parse(JSON.stringify(ks))});$("pMsg").textContent=`条件をほかの${plan.rallies.length-1}組にコピーしました。`;pTouch();return}
+  const gsb=e.target.closest("[data-gsend]");if(gsb){const n=gsb.dataset.who,k=+gsb.dataset.gsend,rl=plan.rallies[i];plan.sends=plan.sends||{};
+    const cur=new Set(sendsOf(n));if(cur.has(k)){if(cur.size===1){$("pMsg").textContent="1人1軍団以上は出してください。";return}cur.delete(k)}
+    else{if(unitCount([rl.host,...rl.members].filter(Boolean))>=(plan.size||8)){$("pMsg").textContent=`この組はもう軍団が${plan.size||8}つです。ほかの人の軍団を外してから追加してください。`;return}cur.add(k)}
+    plan.sends[n]=[...cur].sort();pTouch();return}
+  const rm=e.target.closest("[data-rm]");if(rm){const n=plan.rallies[i].members.splice(+rm.dataset.rm,1)[0];if(plan.sends)delete plan.sends[n];pTouch();return}
+  if(e.target.closest("[data-del]")){plan.rallies.splice(i,1);openConds.clear();openKab.clear();pTouch()}});
+$("pUndo").addEventListener("click",()=>{if(!undoPlan())$("pMsg").textContent="戻せる操作はありません。"});
+$("pAdd").addEventListener("click",()=>{if(plan.rallies.length>=RMAX)return;plan.rallies.push({label:"集結"+(plan.rallies.length+1),host:"",members:[]});pTouch()});
+$("pClear").addEventListener("click",()=>{plan.rallies.forEach(r=>{r.host="";r.members=[]});plan.sends={};$("pMsg").textContent="全員を組から外しました。";pTouch()});
+$("pAuto").addEventListener("click",()=>{
+  const asg=assigned(), size=plan.size||8;
+  _mx=null;const pool=pSort(roster().members.filter(n=>!asg.has(n)));
+  plan.rallies.forEach(r=>{if(r.host||!pool.length)return;
+    if((r.conds||[]).length){let bi=0,bv=-1;pool.forEach((n,k)=>{const f=condFit(n,r);const v=f.met*1000+f.fit*100+pScore(n)/100;if(v>bv){bv=v;bi=k}});r.host=pool.splice(bi,1)[0]}
+    else r.host=pool.shift()});
+  const names=r=>[r.host,...r.members].filter(Boolean);
+  let left=0;
+  for(const n of pool){
+    let best=-1,bv=-1e9;
+    plan.rallies.forEach((r,i)=>{const nm=names(r);if(unitCount(nm)+sendsOf(n).length>size)return;
+      const gain=kValue([...nm,n])-kValue(nm);              // 上限内の活用が増えるほど、被りが少ないほど高い
+      const cf=condFit(n,r), cv=cf.total?(cf.met===cf.total?30:cf.fit*8):0; // 組の条件をクリアする人ほど優先
+      const v=gain*10+cv-nm.length*12-nm.reduce((a,x)=>a+pScore(x),0)/Math.max(1,nm.length)/25; // 人数と平均点もならす
+      if(v>bv){bv=v;best=i}});
+    if(best<0){left++;continue}
+    plan.rallies[best].members.push(n);
+  }
+  $("pMsg").textContent=left?`すべての組が上限人数に達したため、${left}人は未配置のままです。組を追加するか、上限人数を増やしてください。`:"被りが少なく、上限内のスキル・守護霊がなるべく入るように割り振りました。必要なら手で入れ替えてください。";
+  pTouch()});
+$("pOpt").addEventListener("click",()=>{
+  const R=plan.rallies, names=r=>[r.host,...r.members].filter(Boolean);
+  const total=()=>R.reduce((a,r)=>a+kValue(names(r)),0), before=total();
+  const overCnt=()=>R.reduce((a,r)=>a+kaburiCheck(names(r)).reduce((x,k)=>x+k.count-k.limit,0),0), ob=overCnt();
+  let improved=true, loops=0, swaps=0;
+  while(improved&&loops<20){improved=false;loops++;
+    for(let i=0;i<R.length;i++)for(let j=i+1;j<R.length;j++){
+      const A=R[i],B=R[j];
+      for(let x=0;x<A.members.length;x++)for(let y=0;y<B.members.length;y++){
+        const val=(r)=>kValue(names(r))+2*r.members.reduce((t,n)=>t+condFit(n,r).fit,0);
+        const cur=val(A)+val(B);
+        const a=A.members[x],b=B.members[y];A.members[x]=b;B.members[y]=a;
+        const sz=plan.size||8, okSize=unitCount(names(A))<=sz&&unitCount(names(B))<=sz;
+        if(okSize&&val(A)+val(B)>cur+1e-9){improved=true;swaps++}else{A.members[x]=a;B.members[y]=b}
+      }}}
+  const oa=overCnt();
+  $("pMsg").textContent=swaps?`参加者を${swaps}回入れ替えました。上限を超えた人数の合計 ${ob} → ${oa}。集結主は動かしていません。`:"これ以上、入れ替えでよくなる組み合わせは見つかりませんでした。";
+  if(swaps)pTouch()});
+$("pSave").addEventListener("click",()=>{
+  if(!plan.name){$("pMsg").textContent="「編成の名前」を入れてから保存してください。";$("pName").focus();return}
+  if(plan.name!==plan.oldName&&plansOf().some(p=>p.name===plan.name)){$("pMsg").textContent="同じ名前の編成がすでにあります。別の名前にしてください。";return}
+  const body=JSON.parse(JSON.stringify({...plan,clan:pClan}));$("pSave").disabled=true;$("pMsg").textContent="保存中…";
+  google.script.run.withSuccessHandler(f=>{$("pSave").disabled=false;form=f;const nm=body.name;
+      plan=structuredClone(plansOf().find(p=>p.name===nm)||body);plan.oldName=nm;planDirty=false;leaveArmed=false;$("pMsg").textContent="編成を保存しました。";renderPlanView()})
+    .withFailureHandler(err=>{$("pSave").disabled=false;$("pMsg").textContent="保存できませんでした："+((err&&err.message)||"もう一度押してください。")}).savePlan(body)});
+$("pDel").addEventListener("click",()=>{if(!plan.oldName)return;
+  if(!delArmed){delArmed=true;$("pDel").textContent="もう一度押すと削除します";return}
+  delArmed=false;$("pDel").textContent="この編成を削除";
+  google.script.run.withSuccessHandler(f=>{form=f;plan=null;planDirty=false;$("pMsg").textContent="編成を削除しました。";renderPlanView()})
+    .withFailureHandler(()=>{$("pMsg").textContent="削除できませんでした。もう一度押してください。"}).deletePlan(pClan,plan.oldName)});
+$("pCopy").addEventListener("click",()=>{
+  const lines=[`【${pClan}】${plan.name||"（名前なし）"}${plan.type?"　"+plan.type+"兵":""}`];
+  plan.rallies.forEach(r=>lines.push(`${r.label}：主 ${r.host||"未定"}${r.members.length?"／"+r.members.join("、"):""}`));
+  const asg=assigned(), pool=roster().members.filter(n=>!asg.has(n));if(pool.length)lines.push("未配置："+pool.join("、"));
+  const text=lines.join("\n"), ta=$("pText");ta.value=text;ta.hidden=false;
+  const done=()=>{$("pMsg").textContent="コピーしました。Discordに貼り付けてください。"};
+  const manual=()=>{$("pMsg").textContent="自動でコピーできませんでした。下の文章を長押しして全選択し、コピーしてください。"};
+  const fallback=()=>{ta.focus();ta.select();try{document.execCommand("copy")?done():manual()}catch(e){manual()}};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,fallback);else fallback();});
+
+
+/* ---------- 武将被りの判定（「武将被り」シートの上限） ---------- */
+const KABURI=[["北条早雲",1,8],["織田信長",8,8],["鈴木重秀",1,2],["毛利元就",8,8],["本多忠勝",8,1],["島津家久",8,2],["堀秀政",2,1],["小早川隆景",2,2],["宇喜多直家",6,2],["上泉信綱",8,2],["黒田官兵衛",8,8],["村井貞勝",8,2],["真田幸村",8,8],["井伊直虎",8,8],["豊臣秀吉",8,8],["伊達政宗",8,2],["甲斐姫",8,2],["ねね",8,8],["斎藤利三",8,8],["赤井直正",8,8],["櫛橋光",8,2],["直江兼続",6,3],["宮本武蔵",5,2],["尼子経久",3,2],["立花宗茂",1,2],["神谷薫",4,1],["緋村剣心",2,1],["井伊直政",8,8],["森長可",1,2],["加藤清正",1,2],["果心居士",8,2],["寿桂尼",2,2],["北条氏康",8,2],["山本勘助",8,1],["榊原康政",2,2],["三浦按針",8,8],["上杉景勝",2,3],["織田信忠",2,1],["武田信玄",8,8],["北条氏綱",8,2],["山中鹿之助",8,8],["高坂昌信",8,8],["山県昌景",8,2],["義姫",8,2],["真田信之",2,2],["柿崎景家",2,1],["綾御前",3,3],["淀殿",8,8],["細川忠興",8,2],["武田信繁",8,8],["三好長慶",8,2],["千代",2,2],["北条綱成",8,2],["高橋紹運",1,2],["出雲阿国",8,2],["伊達稙宗",8,8],["春日局",8,2],["秋山信友",3,2],["竹中半兵衛",8,8],["佐々成政",2,2],["愛姫",2,2],["濃姫",8,5],["津軽為信",8,5],["前田慶次",3,2],["柴田勝家",8,8],["足利義昭",8,8],["柳生宗厳",8,2],["真田幸隆",2,1],["SP織田信長",2,0],["天草四郎",1,1],["鍋島直茂",1,2],["福島正則",0,0],["おつやの方",2,2],["島津歳久",3,2],["伊達成実",null,8]];
+const KPAIRS=[{names:["堀秀政","小早川隆景"],type:"n",limit:2},{names:["濃姫","津軽為信"],type:"g",limit:5}];
+const KMEMO={"堀秀政":"通常スキルは小早川隆景と合わせて数える","小早川隆景":"通常スキルは堀秀政と合わせて数える","濃姫":"守護霊（覚醒）スキルは津軽為信と合わせて数える","津軽為信":"守護霊（覚醒）スキルは濃姫と合わせて数える","寿桂尼":"シートに2行あり（もう1行は 1・1）","伊達成実":"通常スキルの上限が空欄のため判定しない","福島正則":"上限0のため判定しない","SP織田信長":"守護霊は上限0のため判定しない"};
+const KTYPE={n:"通常スキル",g:"守護霊スキル"};
+function kKnown(g){return SP.includes(g)||ALLGEN.some(x=>x.n===g)}
+function kHas(m,g,type){if(!m)return false;
+  if(SP.includes(g)){if(type==="g")return false;const v=(m.sp||{})[g];return !!v&&Object.values(v).some(x=>x!=null&&x!=="")}
+  const e=(m.generals||{})[g];if(!e||e.a==null)return false;return type==="n"?true:e.a===2}
+/** 判定する項目の一覧：{gen, type, limit, gens}（上限1〜7と、2人まとめて数える組） */
+function kItems(withEight){
+  const paired={n:new Set(),g:new Set()}, out=[];
+  KPAIRS.forEach(p=>{p.names.forEach(n=>paired[p.type].add(n));out.push({gen:p.names.join("＋"),type:p.type,limit:p.limit,gens:p.names})});
+  KABURI.forEach(([g,ln,lg])=>{if(!kKnown(g))return;
+    [["n",ln],["g",lg]].forEach(([t,lim])=>{if(lim==null||lim===0||(lim>=8&&!withEight)||paired[t].has(g))return;out.push({gen:g,type:t,limit:lim,gens:[g]})})});
+  return out;
+}
+let KITEMS=null, KALL=null; const kitems=()=>KITEMS||(KITEMS=kItems(false)), kitemsAll=()=>KALL||(KALL=kItems(true));
+const kHasItem=(n,it)=>it.gens.some(g=>kHas(members[n],g,it.type));
+/**
+ * 1つの集結について：上限＝集結内に欲しい数。
+ * over：上限を超えた被り／used：上限ちょうどまで入っている／short：欲しい数に足りない（あと何人）
+ * 欲しい数は「上限」と「1組の上限人数」の小さいほう。組の誰かが持っている武将だけを数える。
+ */
+function kaburiStats(names,size){
+  const over=[], used=[], short=[], cap=size||8, us=unitsOf(names);
+  kitemsAll().forEach(it=>{const hit=us.filter(u=>unitHas(u,it));if(!hit.length)return;
+    const want=Math.min(it.limit,cap), r={...it,count:hit.length,who:hit.map(unitLabel),want,lack:Math.max(0,want-hit.length)};
+    if(hit.length>it.limit)over.push(r);else if(r.lack>0)short.push(r);else used.push(r)});
+  over.sort((a,b)=>(b.count-b.limit)-(a.count-a.limit));
+  short.sort((a,b)=>(a.limit>=8)-(b.limit>=8)||b.lack-a.lack);
+  return {over,used,short,est:us.some(u=>u.est)};
+}
+/**
+ * 武将スキル・守護霊以外の「重ねても効かない／上限がある」もののチェック（集結内）
+ * 相克（合計を参考表示のみ）・兵法・お面・神格（同名）・戦法（同じ戦法）・阿修羅スキル（同名）
+ */
+const SK_CAP=80;
+function otherStats(names){
+  const out=[], ms=names.map(n=>[n,members[n]]).filter(x=>x[1]);
+  // 相克：兵種ごとに有利・不利を合計して参考表示（80%は敵と相殺後の上限なので、積めるだけ積む。警告はしない）
+  const tot={};TROOPS.forEach(t=>tot[t]={u:0,f:0,wu:[],wf:[]});
+  ms.forEach(([n,m])=>{const l=gdListOf(n),hs=new Set();sendsOf(n).forEach(i=>((l[i]||{}).hime||[]).forEach(h=>{h=String(h||"").trim();if(h)hs.add(h)}));
+    const r=skOf(m,m.himeSk?hs:null);TROOPS.forEach(t=>{if(r[t].u){tot[t].u+=r[t].u;tot[t].wu.push(n+" "+(+r[t].u.toFixed(1)))}if(r[t].f){tot[t].f+=r[t].f;tot[t].wf.push(n+" "+(+r[t].f.toFixed(1)))}})});
+  TROOPS.forEach(t=>{if(!tot[t].u&&!tot[t].f)return;
+    out.push({cat:"相克",info:true,t,u:tot[t].u,f:tot[t].f,label:`${t} 有利 ${+tot[t].u.toFixed(1)}%・不利 ${+tot[t].f.toFixed(1)}%`,note:"",who:[...new Set([...tot[t].wu,...tot[t].wf].map(x=>x.replace(/ [\d.]+$/,"")))],wu:tot[t].wu,wf:tot[t].wf})});
+  // 具足の陣の相克：集結の上限はなし。個人（兵種ごとの具足）で有利・不利それぞれ50%が上限。出す軍団の兵種だけ。陣と違う相克は無効
+  ms.forEach(([n,m])=>{if(!m.jin)return;const l=gdListOf(n),tr=new Set();
+    sendsOf(n).forEach(i=>bts(l[i]).forEach(b=>{if(b.t)tr.add(b.t)}));const est=!tr.size;
+    const r=jinOf(m,est?null:tr);
+    r.bad.forEach(b=>out.push({cat:"具足相克",label:`${n}の${b.t}兵`,over:true,note:`${b.j?b.j+"の陣":"陣なし"}に${b.jj}の相克（有利${b.u}・不利${b.f}）は効きません`,who:[n]}));
+    r.out.forEach(o=>[["u","有利"],["f","不利"]].forEach(([k,lb])=>{const v=o[k];if(!v)return;
+      if(v>JIN_CAP)out.push({cat:"具足相克",label:`${n}の${o.t}兵（${o.j}の陣）${lb} ${v}%`,over:true,note:`個人の上限50%を${+(v-JIN_CAP).toFixed(1)}%超え（超えた分は無駄）`,who:[n]});
+      else if(v<JIN_CAP)out.push({cat:"具足相克",label:`${n}の${o.t}兵（${o.j}の陣）${lb} ${v}%`,over:false,lack:true,note:`個人の上限50%まであと${+(JIN_CAP-v).toFixed(1)}%`,who:[n]})}))});
+  // 1人分しか効かない／上限を共有するもの：持っている人数
+  const cnt=(cat,list,get,note)=>list.forEach(x=>{const who=ms.filter(([n,m])=>get(m,x)).map(([n])=>n);if(who.length>1)out.push({cat,label:x,over:true,note,who})});
+  cnt("兵法",HEIHO,(m,x)=>(m.heiho||{})[x],"重ねがけ不可（効くのは最も大きい1人分）");
+  cnt("お面",MEN,(m,x)=>(m.men||{})[x],"お面スキルは重ねがけ不可（最も大きい1つだけ）");
+  cnt("神格",SHIN,(m,x)=>(m.shin||{})[x],"同名神格は効果の上限を共有");
+  // 戦法：集結に出す軍団の戦法
+  const sp={};names.forEach(n=>{const l=gdListOf(n);sendsOf(n).forEach(i=>{const g=l[i];const v=g&&String(g.senpo||"").trim();if(v)(sp[v]=sp[v]||[]).push(n+" "+(i+1)+"軍")})});
+  Object.entries(sp).forEach(([k,w])=>{if(w.length>1)out.push({cat:"戦法",label:k,over:true,note:"同じ戦法は集結で上限あり（騎馬鉄砲の貫通ダメージ+40%まで、釣り野伏のダメージ+20%まで など）",who:w})});
+  // 阿修羅スキル：同名（兵種の「・騎／・歩／・弓」は区別しない）
+  const as={};ms.forEach(([n,m])=>{const seen=new Set();Object.values(m.ashura||{}).forEach(a=>(a||[]).forEach(x=>{const b=String(x||"").trim().replace(/・(騎|歩|弓)$/,"");if(b&&!seen.has(b)){seen.add(b);(as[b]=as[b]||[]).push(n)}}))});
+  Object.entries(as).forEach(([k,w])=>{if(w.length>1)out.push({cat:"阿修羅",label:k,over:true,note:"同じ阿修羅スキルは集結で上限を共有（移花接木・厄憑は最大30% など）",who:w})});
+  return out;
+}
+function kaburiCheck(names){return kaburiStats(names).over}
+/** 編成全体のよさ：欲しい数までに入った数 − 被り×3（大きいほどよい）。軍団単位で数える */
+function kValue(names){const us=unitsOf(names);let v=0;kitems().forEach(it=>{const c=us.filter(u=>unitHas(u,it)).length;v+=Math.min(c,it.limit)-3*Math.max(0,c-it.limit)});return v}
+const openKab=new Set();
+/** 被り・不足の表示（短いまとめ＋押すと詳しく） */
+function kaburiHtml(st,i,ot){ot=ot||[];const skInfo=ot.filter(o=>o.info);ot=ot.filter(o=>!o.info);const oto=ot.filter(o=>o.over);
+  const sh=st.short.filter(k=>k.limit<8), sh8=st.short.filter(k=>k.limit>=8), open=openKab.has(i);
+  const t=k=>k.type==="g"?"守":"通";
+  const chip=(k,cls,txt)=>`<span class="kc ${cls}" title="${esc(k.gen+"（"+KTYPE[k.type]+"）："+k.who.join("、"))}">${esc(k.gen)}<i>${t(k)}</i><b>${txt}</b></span>`;
+  let h=`<div class="ksum"><button type="button" class="ktog" data-ktog="1" aria-expanded="${open}">
+    ${st.over.length?`<span class="kp over">被り ${st.over.length}</span>`:'<span class="kp ok">被りなし</span>'}
+    ${sh.length?`<span class="kp lack">不足 ${sh.length}</span>`:""}
+    <span class="kp full">OK ${st.used.length}</span>${oto.length?`<span class="kp ot">その他 ${oto.length}</span>`:""}${ot.some(o=>o.lack)?`<span class="kp lack">具足相克 不足 ${ot.filter(o=>o.lack).length}</span>`:""}<span class="kar">${open?"閉じる △":"詳しく ▽"}</span></button></div>`;
+  if(open){
+    if(st.over.length)h+=`<div class="kline"><span class="kl">被り</span>${st.over.map(k=>chip(k,"over","+"+(k.count-k.limit))).join("")}</div>`;
+    if(sh.length)h+=`<div class="kline"><span class="kl">不足</span>${sh.map(k=>chip(k,"lack","あと"+k.lack)).join("")}</div>`;
+    if(st.used.length)h+=`<div class="kline"><span class="kl">OK</span>${st.used.map(k=>chip(k,"full",k.count+"/"+k.want)).join("")}</div>`;
+    if(sh8.length)h+=`<details class="kmore"><summary>上限8の武将で足りないもの ${sh8.length}</summary><div class="kline">${sh8.map(k=>chip(k,"lack","あと"+k.lack)).join("")}</div></details>`;
+    if(st.over.length)h+=`<p class="khelp">＋は上限より多い数、あとは欲しい数までの不足。「通」は通常スキル、「守」は守護霊スキル。名前に指を置くと、誰の何軍か出ます。</p>`;
+    if(skInfo.length)h+=`<div class="kline"><span class="kl">相克</span><div>${skInfo.map(o=>`<p class="oline" title="${esc("有利："+(o.wu.join("、")||"なし")+"／不利："+(o.wf.join("、")||"なし"))}">${esc(o.label)}</p>`).join("")}<p class="khelp">集結の合計（参考）。上限80%は敵の相克と相殺した後の上限なので、超えていても積めるだけ積んでOKです。名前に指を置くと内訳が出ます。</p></div></div>`;
+    if(!ot.length)h+=`<p class="khelp">その他（具足相克・兵法・お面・神格・戦法・阿修羅スキル）：引っかかりなし</p>`;
+    if(ot.length){h+=`<div class="kline"><span class="kl">その他</span><div>${ot.map(o=>`<p class="oline" title="${esc(o.who.join("、"))}">【${esc(o.cat)}】${o.over?`<b class="ov">${esc(o.label)}</b>`:o.lack?`<b style="color:var(--ai)">${esc(o.label)}</b>`:esc(o.label)}：${esc(o.note)}<br><span class="legend">${esc(o.who.join("、"))}</span></p>`).join("")}</div></div>`}
+    if(st.est)h+=`<p class="khelp">「推定」は軍団が未入力のため、持っている武将全部で数えています。</p>`;
+  }
+  return h;
+}
+function renderRules(){
+  $("rulePairs").innerHTML=KPAIRS.map(p=>`<p style="margin:0 0 6px"><b>${p.names.map(esc).join("＋")}</b>：${KTYPE[p.type]}を合わせて <b>${p.limit}</b>人まで</p>`).join("");
+  $("ruleMissing").textContent=KABURI.filter(([g])=>!kKnown(g)).map(([g])=>g).join("、")||"なし";
+  const q=$("ruleQ").value.trim(), only=$("ruleOnly").checked;
+  const rows=KABURI.filter(([g,n,gd])=>(!q||g.includes(q))&&(!only||(n!=null&&n<8)||gd<8));
+  const td=v=>`<td class="lim n${v!=null&&v<8?" lo":""}">${v==null?"―":v}</td>`;
+  $("ruleBody").innerHTML=rows.length?rows.map(([g,n,gd])=>`<tr><td>${esc(g)}</td>${td(n)}${td(gd)}<td class="legend">${esc(KMEMO[g]||(kKnown(g)?"":"名簿に入力欄がないため判定しない"))}</td></tr>`).join("")
+    :`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">合う武将がいません</td></tr>`;
+}
+$("ruleQ").addEventListener("input",renderRules);$("ruleOnly").addEventListener("change",renderRules);
+
+
+/* ---------- 集結ごとの条件（編成の条件設定） ---------- */
+const CCAT=[["basic","基本"],["troop","兵種"],["gen","武将"],["sp","SP武将"],["item","加速アイテム"]];
+const GRV={"初":1,"中":2,"上":3};
+function cTargets(c){return c==="troop"?TROOPS.map(t=>[t,t+"兵"]):c==="gen"?ALLGEN.map(g=>[g.n,g.n]):c==="sp"?SP.map(n=>[n,n]):c==="item"?ITEMS:[]}
+function cFields(c,t){
+  if(c==="basic")return[["power","戦力（万）"],["rally","集結数"]];
+  if(c==="troop")return[["lv","LV"],["gunryaku","上級軍略"],["shindo","進度（LV合計値）"],["gusoku_sr","具足SR"],["gusoku_ssr","具足SSR"],["gunba","軍馬LV20"]];
+  if(c==="gen")return[["a","覚醒・守護霊"],["s","専属守護霊Lv"],...((EXTRA[t]||[]).map(l=>["x:"+l,l]))];
+  if(c==="sp")return[["shugi","主義"],["fuku","副将任命"]];
+  if(c==="item")return[["n","個数"]];
+  return[];
+}
+function cValOpts(c,f){
+  if(c==="gen"&&f==="a")return[[0,"持っている（通常スキル）"],[1,"覚醒（他化自在天）以上"],[2,"専属守護霊覚醒（守護霊）"]];
+  if(c==="troop"&&f==="gunryaku")return[[1,"初級以上"],[2,"中級以上"],[3,"上級"]];
+  if(c==="troop"&&f==="lv")return Array.from({length:15},(_,k)=>k+1).flatMap(v=>[[v,v+"以上"],[v+.5,v+"強化以上"]]);
+  if(c==="sp"&&f==="fuku")return[[1,"1 副将有効以上"],[2,"2 守護霊有効以上"],[3,"3 衣装＋神格"]];
+  return null;
+}
+function cVal(m,k){if(!m)return null;
+  if(k.c==="basic")return m[k.f]??null;
+  if(k.c==="troop"){const x=(m.troops||{})[k.t]||{};if(k.f==="lv")return x.lv?x.lv+(x.lvPlus?.5:0):null;if(k.f==="gunryaku")return GRV[x.gunryaku]??null;return x[k.f]??null}
+  if(k.c==="gen"){const e=(m.generals||{})[k.t];if(!e||e.a==null)return null;if(k.f==="a")return e.a;if(k.f==="s")return e.a===2?(e.s??null):null;return (e.x||{})[k.f.slice(2)]??null}
+  if(k.c==="sp")return((m.sp||{})[k.t]||{})[k.f]??null;
+  if(k.c==="item")return(m.items||{})[k.t]??null;
+  return null;
+}
+const cMet=(m,k)=>{const v=cVal(m,k);return v!=null&&Number(v)>=k.v};
+function cRatio(m,k){const v=cVal(m,k);if(v==null)return 0;if(Number(v)>=k.v)return 1;
+  if(k.c==="gen"&&k.f==="a")return (Number(v)+1)/(k.v+1);return k.v>0?Math.max(0,Number(v)/k.v):0}
+function cLabel(k){const fl=(cFields(k.c,k.t).find(f=>f[0]===k.f)||[k.f,k.f])[1];const vo=cValOpts(k.c,k.f);
+  const tl=k.c==="basic"?"":k.c==="troop"?k.t+"兵 ":k.c==="item"?(ITEMS.find(x=>x[0]===k.t)||[0,k.t])[1]+" ":k.t+" ";
+  if(vo){const o=vo.find(x=>x[0]===k.v);return tl+(k.f==="a"?"":fl+" ")+(o?o[1]:k.v)}
+  return `${tl}${fl} ${k.v}以上`}
+function cHint(m,k){const v=cVal(m,k);if(k.c==="gen"&&k.f==="a")return v==null?`${k.t}なし`:`${k.t} ${["所持","覚醒","専属"][v]||v}`;
+  if(k.c==="troop"&&k.f==="gunryaku")return `${k.t}軍略 ${v==null?"なし":["","初","中","上"][v]}`;
+  if(k.c==="troop"&&k.f==="lv")return `${k.t}LV ${v==null?"―":(Math.floor(v)+(v%1?"強化":""))}/${Math.floor(k.v)+(k.v%1?"強化":"")}`;
+  return `${cLabel(k).replace(/ [\d.]+以上$/,"")} ${v??"―"}/${k.v}`}
+/** その人が集結の条件をどれだけ満たすか {met, total, fit(0〜1), miss:[文字]} */
+function condFit(name,rl){const ks=(rl&&rl.conds)||[];const m=members[name];if(!ks.length)return{met:0,total:0,fit:0,miss:[]};
+  let met=0,sum=0;const miss=[];ks.forEach(k=>{const r=cRatio(m,k);sum+=r;if(r>=1)met++;else miss.push(cHint(m,k))});
+  return{met,total:ks.length,fit:sum/ks.length,miss}}
+function condCands(rl,pool,n=6){return pool.map(name=>({name,...condFit(name,rl)})).sort((a,b)=>b.met-a.met||b.fit-a.fit||pScore(b.name)-pScore(a.name)).slice(0,n)}
+const openConds=new Set(), condForm={};
+function cFormHtml(i){const st=condForm[i]||(condForm[i]={c:"troop",t:"馬",f:"lv",v:""});
+  const tg=cTargets(st.c), fs=cFields(st.c,st.t), vo=cValOpts(st.c,st.f);
+  const sel=(cf,list,cur,lab)=>`<select data-cf="${cf}" aria-label="${lab}">${list.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(cur)?"selected":""}>${esc(l)}</option>`).join("")}</select>`;
+  return `${sel("c",CCAT,st.c,"条件の種類")}${tg.length?sel("t",tg,st.t,"対象"):""}${sel("f",fs,st.f,"項目")}${vo?sel("v",vo,st.v,"値"):`<input type="number" data-cf="v" min="0" step="any" value="${esc(st.v)}" placeholder="以上" aria-label="値（以上）">`}<button type="button" class="pri" data-cadd="1">追加</button>`}
+function condPanelHtml(rl,i,pool,room){
+  const ks=rl.conds||[];
+  let h=`<div class="cpanel"><div class="cchips">${ks.length?ks.map((k,j)=>`<span class="cchip">${esc(cLabel(k))}<button type="button" class="x" data-cdel="${j}" aria-label="この条件を消す">×</button></span>`).join(""):'<span class="legend">まだ条件がありません。下で追加してください。</span>'}</div>
+    <div class="cform">${cFormHtml(i)}</div>`;
+  if(ks.length){const cs=condCands(rl,pool);const full=cs.filter(c=>c.met===c.total);
+    h+=`<div class="cres"><span class="kh2">${!cs.length?"まだ組に入っていない人から探します":full.length?"条件をクリアする人（まだ組に入っていない人）":"条件をクリアする人がいません。条件に近い人"}</span>${cs.length?cs.filter(c=>full.length?c.met===c.total:true).map(c=>`<div class="ccand"><span class="nm">${esc(c.name)}</span><span class="cm ${c.met===c.total?"ok":""}">${c.met}/${c.total}</span>${room?`<button type="button" data-cpick="${esc(c.name)}">入れる</button>`:""}${c.miss.length?`<span class="miss">${c.miss.map(esc).join("　")}</span>`:""}</div>`).join(""):'<span class="legend">組に入っていない人がいません。</span>'}</div>
+    <div class="row"><button type="button" data-ccopy="1">この条件をほかの組にもコピー</button></div>`}
+  return h+"</div>"}
+
+
+/* ---------- 閲覧（1人ずつスライド） ---------- */
+let viewMode=false, appUrl="", pv={clan:"",name:""};
+const FUKU=["開放なし","副将有効","守護霊有効","衣装＋神格"], GRL={"初":"初級","中":"中級","上":"上級"};
+function pvList(){const c=pv.clan;
+  const names=c?(((form.rosters||{})[c]||{}).members||[]).filter(n=>members[n]):Object.keys(members);
+  return [...names].sort((a,b)=>a.localeCompare(b,"ja"))}
+function pvOptions(){const clans=form.clans||[];const cnt=c=>((((form.rosters||{})[c]||{}).members||[]).filter(n=>members[n])).length;
+  $("pvClan").innerHTML=`<option value="">全員（${Object.keys(members).length}人）</option>`+clans.map(c=>`<option value="${esc(c)}" ${c===pv.clan?"selected":""}>${esc(c)}（${cnt(c)}人）</option>`).join("");
+  $("pvClan").value=pv.clan}
+function segBar(v,max){return `<span class="seg12" aria-hidden="true">${Array.from({length:max},(_,i)=>`<i${i<v?' class="on"':""}></i>`).join("")}</span>`}
+function pvHtml(m){
+  const st=stats(m), g=m.generals||{}, owned=Object.keys(g).length, clan=clanOf(m.name);
+  const kpi=(l,v)=>`<div class="pvk"><span>${l}</span><b>${v??"―"}</b></div>`;
+  const troops=TROOPS.map(t=>{const x=(m.troops||{})[t]||{};
+    return `<div class="pvt"><h4>${t}兵</h4><div class="pvlv"><b>${x.lv??"―"}</b>${x.lvPlus?'<span class="plus">強化</span>':""}<small>LV</small></div>
+      <dl><dt>上級軍略</dt><dd>${GRL[x.gunryaku]||"―"}</dd><dt>進度</dt><dd>${x.shindo??"―"}</dd><dt>具足 SR / SSR</dt><dd>${x.gusoku_sr??"―"} / ${x.gusoku_ssr??"―"}</dd><dt>軍馬LV20</dt><dd>${x.gunba??"―"}</dd></dl></div>`}).join("");
+  const sps=SP.filter(n=>(m.sp||{})[n]).map(n=>{const v=m.sp[n];
+    return `<div class="pvsp"><b>${esc(n)}</b><span>主義 ${v.shugi??"―"}${v.shugi!=null?segBar(Math.min(10,v.shugi),10):""}</span><span>副将 ${v.fuku!=null?(v.fuku+" "+(FUKU[v.fuku]||"")):"―"}</span></div>`}).join("");
+  const showAll=$("pvAll").checked;
+  const cats=GENS.map(([c,l])=>{const tiles=l.map(([n])=>{const e=g[n];if(!e&&!showAll)return"";
+      if(!e)return `<div class="pvg none"><span class="gn">${esc(n)}</span><span class="st">なし</span></div>`;
+      const stg=e.a===2?["two","専属守護霊"]:e.a===1?["one","覚醒"]:["zero","所持"];
+      const ex=Object.entries(e.x||{}).filter(([,v])=>v!=null&&v!=="").map(([k,v])=>`<span>${esc(k)} ${esc(v)}</span>`).join("");
+      return `<div class="pvg ${stg[0]}"><span class="gn">${esc(n)}</span><span class="st">${stg[1]}</span>${e.a===2?`<span class="lvrow">${segBar(e.s||0,12)}<b>${e.s??"―"}</b></span>`:""}${ex?`<span class="ex">${ex}</span>`:""}</div>`}).join("");
+    return tiles?`<div class="pvcat"><h4>${esc(c)}</h4><div class="pvgrid">${tiles}</div></div>`:""}).join("");
+  const items=ITEMS.map(([k,l])=>`<div class="pvk"><span>${l}</span><b>${(m.items||{})[k]??"―"}</b></div>`).join("");
+  return `<header class="pvh"><div><h2>${esc(m.name)}</h2><div class="pvtags">${clan?`<span class="pill">${esc(clan)}</span>`:'<span class="pill old">一族なし</span>'}${m.source==="スプシ取込"?'<span class="pill old">スプシから取り込んだ古い値</span>':`<span class="pill new">更新 ${esc(m.updatedAt||"")}</span>`}</div></div>
+      <button type="button" id="pvEdit">この人を編集</button></header>
+    <div class="pvkpis">${kpi("戦力（万）",m.power)}${kpi("集結数",m.rally!=null?Number(m.rally).toLocaleString():null)}${kpi("所持武将",owned+"人")}${kpi("専属守護霊覚醒",st.two+"人")}${kpi("守護霊Lv合計",st.lv)}${kpi("相克の合計",+skOf(m).total.toFixed(2))}</div>
+    <h3>兵種</h3><div class="pvtroops">${troops}</div>
+    <h3>SP武将</h3>${sps?`<div class="pvsps">${sps}</div>`:'<p class="legend">所持なし</p>'}
+    <h3>武将 <small>（${owned}人所持）</small></h3>${cats||'<p class="legend">入力されていません</p>'}
+    <h3>軍団</h3>${gdView(m)}
+    <h3>加速アイテム</h3><div class="pvkpis">${items}</div>`}
+function gdView(m){const l=gdList(m);if(!l.some(gdDefined))return '<p class="legend">まだ入力されていません</p>';
+  return `<div class="pvgds">${l.map((gd,i)=>gdDefined(gd)?`<div class="pvgd"><h4>${i+1}軍</h4>${bts(gd).map((b,bi)=>(b.g||[]).some(x=>x)?`<div class="pvbt"><span class="bt">${BT_MARK[bi]}${b.t?`<i>${esc(b.t)}</i>`:""}</span>${(b.g||[]).filter(x=>x).map(n=>`<span class="gnm ${((m.generals||{})[n]||{}).a===2?"two":""}">${esc(n)}</span>`).join("")}</div>`:"").join("")}
+    ${(gd.hime||[]).some(x=>x)?`<div class="pvx">姫武者：${gd.hime.filter(x=>x).map(esc).join("、")}</div>`:""}${gd.heiki||gd.senpo?`<div class="pvx">${gd.heiki?"兵器："+esc(gd.heiki):""}　${gd.senpo?"戦法："+esc(gd.senpo):""}</div>`:""}</div>`:"").join("")}</div>`}
+function renderView(dir){
+  pvOptions();
+  const list=pvList();
+  if(!list.length){$("pvPos").textContent="0 / 0";$("pvCard").innerHTML=`<p class="empty">${Object.keys(members).length?"この一族にはまだ名簿のデータがある人がいません。":"名簿を読み込み中…"}</p>`;return}
+  let i=list.indexOf(pv.name);if(i<0){i=0;pv.name=list[0]}
+  $("pvPos").textContent=`${i+1} / ${list.length}`;
+  const card=$("pvCard");card.innerHTML=pvHtml(members[pv.name]);
+  $("pvEdit").onclick=()=>{openMember(pv.name);document.body.classList.remove("viewonly");go("input")};
+  if(dir&&!matchMedia("(prefers-reduced-motion: reduce)").matches){card.style.transition="none";card.style.transform=`translateX(${dir*40}px)`;card.style.opacity=".3";
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{card.style.transition="transform .22s ease, opacity .22s ease";card.style.transform="";card.style.opacity=""}))}
+}
+function pvStep(d){const list=pvList();if(!list.length)return;let i=list.indexOf(pv.name);i=(i+d+list.length)%list.length;pv.name=list[i];renderView(d);try{window.scrollTo(0,0)}catch(e){}}
+function openViewer(name){
+  const clan=clanOf(name)||"";
+  if(appUrl){const a=document.createElement("a");a.href=`${appUrl}?mode=view&p=${encodeURIComponent(name)}&clan=${encodeURIComponent(clan)}`;a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove();return}
+  pv={clan,name};go("view");
+}
+$("pvPrev").addEventListener("click",()=>pvStep(-1));$("pvNext").addEventListener("click",()=>pvStep(1));
+$("pvClan").addEventListener("change",()=>{pv.clan=$("pvClan").value;pv.name="";renderView()});
+$("pvAll").addEventListener("change",()=>renderView());
+attachAC("pvq",n=>{if(!members[n])return;if(!pvList().includes(n))pv.clan=clanOf(n)||"";pv.name=n;renderView();$("pvq").value="";$("pvq").blur()});
+document.addEventListener("keydown",e=>{if(curView!=="view")return;const t=e.target;if(t&&/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName))return;
+  if(e.key==="ArrowLeft"){pvStep(-1);e.preventDefault()}else if(e.key==="ArrowRight"){pvStep(1);e.preventDefault()}});
+(function(){const st=$("pvStage"),card=$("pvCard");let x0=null,y0=0,dx=0,lock=null;
+  st.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;x0=e.touches[0].clientX;y0=e.touches[0].clientY;dx=0;lock=null;card.style.transition="none"},{passive:true});
+  st.addEventListener("touchmove",e=>{if(x0==null)return;const t=e.touches[0];dx=t.clientX-x0;const dy=t.clientY-y0;
+    if(lock==null&&(Math.abs(dx)>8||Math.abs(dy)>8))lock=Math.abs(dx)>Math.abs(dy)?"x":"y";
+    if(lock==="x")card.style.transform=`translateX(${dx}px)`},{passive:true});
+  st.addEventListener("touchend",()=>{if(x0==null)return;x0=null;card.style.transition="transform .2s ease";
+    if(lock==="x"&&Math.abs(dx)>60){pvStep(dx<0?1:-1)}else card.style.transform=""});
+})();
+
+
+/* ---------- 軍団（1軍〜5軍）：1軍団＝戦法・兵器・姫武者5人＋5部隊（兵種・主将・先陣・軍師） ---------- */
+const GD_N=5, BT_N=5, HIME_N=5;
+const ROLES=["主将","先陣","軍師"], BT_MARK=["①","②","③","④","⑤"];
+const SENPO=["騎馬鉄砲","釣り野伏","影武者","車懸り","瓶割り","三段撃ち","気勢崩し","底力"];
+const HEIKI=["三弓床弩","赤鬼崩し","隕石砲","般若衝突塔","百目狭間筒","仕寄車","焔焔爆炎車","仏朗機砲","神機砲","芝辻筒","荻野流筒","黄銅筒","飛石機","破城車","見張り台","鎖鉄球機"];
+const HIME=HIME_ALL;
+/** 部隊は①〜⑤ */
+const bts=gd=>{const b=(gd&&gd.butai)||[];return Array.from({length:BT_N},(_,i)=>b[i]||{t:"",g:["","",""]})};
+const emptyGd=()=>({butai:Array.from({length:BT_N},()=>({t:"",g:["","",""]})),hime:Array(HIME_N).fill(""),heiki:"",senpo:""});
+function gdList(m){const a=(m&&m.gundan)||[];return Array.from({length:GD_N},(_,i)=>a[i]||null)}
+function gdGens(gd){const s=new Set();if(!gd)return s;bts(gd).forEach(b=>[...(b.g||[]),...(b.sub||[])].forEach(n=>{n=String(n||"").trim();if(n)s.add(n)}));return s}
+const gdDefined=gd=>gdGens(gd).size>0;
+function gdOf(name,k){const o=plan&&plan.gdo&&plan.gdo[name]&&plan.gdo[name][k];return o||gdList(members[name])[k]}
+const gdListOf=name=>Array.from({length:GD_N},(_,k)=>gdOf(name,k));
+function gdDefault(name){const l=gdListOf(name);const i=l.findIndex(gdDefined);return i<0?0:i}
+/** 集結に出す軍団（0〜4の番号）。指定がなければ、入力済みの最初の軍団 */
+function sendsOf(n){const s=plan&&plan.sends&&plan.sends[n];return s&&s.length?s:[gdDefault(n)]}
+const unitCount=names=>names.reduce((a,n)=>a+sendsOf(n).length,0);
+/** 名前の並び → 軍団ごとの単位 {name, gd, gens:Set, guard:Set, est} */
+function unitsOf(names){const out=[];names.forEach(n=>{const m=members[n];if(!m)return;const l=gdListOf(n);
+  sendsOf(n).forEach(i=>{const gd=l[i];
+    if(gdDefined(gd)){const gens=gdGens(gd);out.push({name:n,gd:i,gens,guard:new Set([...gens].filter(g=>((m.generals||{})[g]||{}).a===2)),est:false})}
+    else{const gens=new Set(Object.keys(m.generals||{}).filter(g=>(m.generals[g]||{}).a!=null));
+      SP.forEach(g=>{const v=(m.sp||{})[g];if(v&&Object.values(v).some(x=>x!=null&&x!==""))gens.add(g)});
+      out.push({name:n,gd:i,gens,guard:new Set([...gens].filter(g=>((m.generals||{})[g]||{}).a===2)),est:true})}})});
+  return out}
+const unitHas=(u,it)=>it.gens.some(g=>(it.type==="g"?u.guard:u.gens).has(g));
+const unitLabel=u=>`${u.name}（${u.gd+1}軍${u.est?"・推定":""}）`;
+
+let gdCur=0;
+function gdRender(){
+  if(!draft){$("gdBox").innerHTML="";return}
+  const l=gdList(draft);
+  $("gdTabs").innerHTML=l.map((gd,i)=>`<button type="button" data-gdt="${i}" aria-pressed="${i===gdCur}">${i+1}軍${gdDefined(gd)?'<small>●</small>':""}</button>`).join("");
+  const gd=l[gdCur]||emptyGd();
+  const opt=(cur,list)=>list.map(v=>`<option value="${v}" ${v===cur?"selected":""}>${v||"兵種"}</option>`).join("");
+  $("gdBox").innerHTML=`<div class="gdsub gdtop"><label class="f">戦法<select data-gk="senpo">${["",...SENPO].map(v=>`<option value="${v}" ${v===(gd.senpo||"")?"selected":""}>${v||"―"}</option>`).join("")}</select></label>
+      <label class="f">兵器<input data-gk="heiki" list="heikiList" value="${esc(gd.heiki||"")}" placeholder="例：三弓床弩" autocomplete="off"></label></div>
+    <div class="gdsub"><span class="bt">姫武者</span>${(gd.hime||[]).slice(0,HIME_N).map((h,hi)=>`<input data-gk="hime" data-s="${hi}" list="himeList" value="${esc(h||"")}" placeholder="姫${hi+1}" aria-label="姫武者${hi+1}" autocomplete="off">`).join("")}</div>
+    <div class="gdgrid"><div class="gdbt gdhd"><span></span><span>兵種</span>${ROLES.map(r=>`<span>${r}</span>`).join("")}</div>${bts(gd).map((b,bi)=>`<div class="gdbt"><span class="bt">部隊${BT_MARK[bi]}</span>
+      <select data-gk="t" data-b="${bi}" aria-label="部隊${BT_MARK[bi]}の兵種">${opt(b.t||"",["","馬","弓","歩"])}</select>
+      ${[0,1,2].map(si=>gcellHtml(b,si,draft,`data-gslot="1" data-b="${bi}" data-s="${si}"`,`部隊${BT_MARK[bi]}の${ROLES[si]}`,()=>false)).join("")}</div>`).join("")}</div>
+    <div class="gdsub" style="grid-template-columns:auto;justify-content:start"><button type="button" data-gclear="1">この軍団を空にする</button></div>
+    <p class="legend" id="gdWarn"></p>`;
+  gdCheck();
+}
+function gdDups(list){const seen=new Map(),d=new Set();(list||[]).forEach((gd,k)=>{if(!gd)return;bts(gd).forEach(b=>[...(b.g||[]),...(b.sub||[])].forEach(g=>{if(!g)return;if(seen.has(g))d.add(g);else seen.set(g,k)}))});return [...d]}
+function gdCheck(){const gd=gdList(draft)[gdCur];if(!gd){$("gdWarn").textContent="";return}
+  const known=new Set([...ALLGEN.map(g=>g.n),...SP]), bad=[...gdGens(gd)].filter(n=>!known.has(n));
+  const notOwned=[...gdGens(gd)].filter(n=>known.has(n)&&!SP.includes(n)&&!(draft.generals||{})[n]);
+  $("gdWarn").textContent=(bad.length?`名簿にない武将名：${bad.join("、")}（候補から選んでください）　`:"")+(notOwned.length?`「武将」の欄で未所持になっている武将：${notOwned.join("、")}　`:"")+(gdDups(gdList(draft)).length?`2か所以上に入っている武将：${gdDups(gdList(draft)).join("、")}（1か所だけにしてください）`:"");}
+function fixGd(gd){gd.butai=bts(gd).map(b=>({t:b.t||"",g:[0,1,2].map(i=>(b.g||[])[i]||""),sub:[0,1,2].map(i=>(b.sub||[])[i]||""),kyaku:[0,1,2].map(i=>(b.kyaku||[])[i]||"")}));gd.hime=Array.from({length:HIME_N},(_,i)=>(gd.hime||[])[i]||"");gd.heiki=gd.heiki||"";gd.senpo=gd.senpo||"";return gd}
+function gdEnsure(){draft.gundan=draft.gundan||[];while(draft.gundan.length<GD_N)draft.gundan.push(null);if(!draft.gundan[gdCur])draft.gundan[gdCur]=emptyGd();return fixGd(draft.gundan[gdCur])}
+$("gdTabs").addEventListener("click",e=>{const b=e.target.closest("[data-gdt]");if(!b)return;gdCur=+b.dataset.gdt;gdRender()});
+$("gdBox").addEventListener("input",e=>{const el=e.target.closest("[data-gk]");if(!el||!draft)return;const gd=gdEnsure(),k=el.dataset.gk;
+  if(k==="t")gd.butai[+el.dataset.b].t=el.value;
+  else if(k==="hime")gd.hime[+el.dataset.s]=el.value.trim();else gd[k]=el.value.trim();
+  touch();gdCheck();const t=$("gdTabs").querySelector(`[data-gdt="${gdCur}"]`);if(t)t.innerHTML=`${gdCur+1}軍${gdDefined(gd)?"<small>●</small>":""}`});
+$("gdBox").addEventListener("click",e=>{const sl=e.target.closest("[data-gslot]");if(sl&&draft){const bi=+sl.dataset.b,si=+sl.dataset.s;
+    pickForSlot({owner:draft,list:gdList(draft),k:gdCur,bi,si,kind:sl.dataset.kind||"main",title:`${gdCur+1}軍 部隊${BT_MARK[bi]} ${ROLES[si]}`,gdNow:gdList(draft)[gdCur],
+      apply:fn=>{fn(gdEnsure());touch();gdRender()}});return}
+  if(!e.target.closest("[data-gclear]")||!draft)return;gdEnsure();draft.gundan[gdCur]=null;touch();gdRender()});
+
+
+/* ---------- 集結カードの下：各人の軍団を編成するパネル ---------- */
+function gpanelsHtml(rl,i){
+  const all=[rl.host,...rl.members].filter(Boolean);if(!all.length)return "";
+  const st=all.length>1?kaburiStats(all,plan.size||8):{over:[]};
+  const overG=new Set();st.over.forEach(k=>k.gens.forEach(g=>overG.add(g)));
+  const opt=cur=>["","馬","弓","歩"].map(v=>`<option value="${v}" ${v===(cur||"")?"selected":""}>${v||"兵種"}</option>`).join("");
+  return all.flatMap(n=>sendsOf(n).map(k=>{
+    const gd=fixGd(JSON.parse(JSON.stringify(gdOf(n,k)||emptyGd()))), ov=!!(plan.gdo&&plan.gdo[n]&&plan.gdo[n][k]);
+    const lab=`${n} ${k+1}軍`, dups=new Set(gdDups(gdListOf(n)));
+    return `<div class="gpanel" data-who="${esc(n)}" data-k="${k}">
+      <div class="gpl"><div class="gph"><span class="tag ${n===rl.host?"":"p"}">${n===rl.host?"集結主":"参加"}</span><b>${esc(n)}</b><span class="gk">${k+1}軍</span></div>
+        <div class="gpf">${ov?'<span class="pill old">この編成用に変更中</span><button type="button" data-preset="1">本人の軍団に戻す</button><button type="button" data-psave="1">本人の軍団として保存</button>':(gdDefined(gdOf(n,k))?'<span class="legend">本人が入力した軍団</span>':'<span class="legend">軍団が未入力です。ここで入れられます</span>')}</div></div>
+      ${gd.butai.map((b,bi)=>`<div class="gprow"><span class="bt">部隊${BT_MARK[bi]}</span><select data-pe="t" data-b="${bi}" aria-label="${esc(lab)} 部隊${BT_MARK[bi]}の兵種">${opt(b.t)}</select>${[0,1,2].map(si=>`<span class="role">${ROLES[si]}</span>`+gcellHtml(b,si,members[n],`data-pslot="1" data-b="${bi}" data-s="${si}"`,`${lab} 部隊${BT_MARK[bi]}の${ROLES[si]}`,g=>!!g&&(overG.has(g)||dups.has(g)))).join("")}</div>`).join("")}
+      <div class="gpx">
+        <label><span>戦法</span><select data-pe="senpo" aria-label="${esc(lab)}の戦法">${["",...SENPO].map(v=>`<option value="${v}" ${v===gd.senpo?"selected":""}>${v||"―"}</option>`).join("")}</select></label>
+        <label><span>兵器</span><input data-pe="heiki" list="heikiList" value="${esc(gd.heiki)}" placeholder="兵器" aria-label="${esc(lab)}の兵器" autocomplete="off"></label>
+        <div class="himes"><span>姫武者</span>${gd.hime.map((h,hi)=>`<input data-pe="hime" data-s="${hi}" list="himeList" value="${esc(h)}" placeholder="姫${hi+1}" aria-label="${esc(lab)}の姫武者${hi+1}" autocomplete="off">`).join("")}</div>
+      </div>
+    </div>`})).join("");
+}
+function refreshRallyCard(i){const line=document.querySelector(`.rline[data-li="${i}"]`);if(!line||!rallyCtx)return;
+  const c=rallyCardHtml(plan.rallies[i],i,rallyCtx);line.querySelector(".rcard").outerHTML=c.html;
+  const all=[plan.rallies[i].host,...plan.rallies[i].members].filter(Boolean);
+  const st=all.length>1?kaburiStats(all,plan.size||8):{over:[]};const overG=new Set();st.over.forEach(k=>k.gens.forEach(g=>overG.add(g)));
+  line.querySelectorAll('.gpanel [data-pslot]').forEach(b=>b.classList.toggle("ov",!!b.dataset.g&&overG.has(b.dataset.g)))}
+$("pRallies").addEventListener("input",e=>{const el=e.target.closest("[data-pe]");if(!el)return;
+  const pn=el.closest(".gpanel"),n=pn.dataset.who,k=+pn.dataset.k,i=+el.closest(".rline").dataset.li;
+  plan.gdo=plan.gdo||{};plan.gdo[n]=plan.gdo[n]||{};
+  if(!plan.gdo[n][k]){plan.gdo[n][k]=fixGd(JSON.parse(JSON.stringify(gdList(members[n])[k]||emptyGd())));
+    const f=pn.querySelector(".gpf");if(f)f.innerHTML='<span class="pill old">この編成用に変更中</span><button type="button" data-preset="1">本人の軍団に戻す</button><button type="button" data-psave="1">本人の軍団として保存</button>'}
+  const gd=fixGd(plan.gdo[n][k]),pe=el.dataset.pe;
+  if(pe==="t")gd.butai[+el.dataset.b].t=el.value;else if(pe==="hime")gd.hime[+el.dataset.s]=el.value.trim();else gd[pe]=el.value.trim();
+  markDirtyKpi();refreshRallyCard(i)});
+function panelOverride(pn,n,k){plan.gdo=plan.gdo||{};plan.gdo[n]=plan.gdo[n]||{};
+  if(!plan.gdo[n][k]){plan.gdo[n][k]=JSON.parse(JSON.stringify(gdList(members[n])[k]||emptyGd()));
+    const f=pn.querySelector(".gpf");if(f)f.innerHTML='<span class="pill old">この編成用に変更中</span><button type="button" data-preset="1">本人の軍団に戻す</button><button type="button" data-psave="1">本人の軍団として保存</button>'}
+  return fixGd(plan.gdo[n][k])}
+$("pRallies").addEventListener("click",e=>{const pn=e.target.closest(".gpanel");if(!pn)return;const n=pn.dataset.who,k=+pn.dataset.k;
+  const sl=e.target.closest("[data-pslot]");if(sl){const bi=+sl.dataset.b,si=+sl.dataset.s;
+    pickForSlot({owner:members[n],list:gdListOf(n),k,bi,si,kind:sl.dataset.kind||"main",title:`${n}　${k+1}軍 部隊${BT_MARK[bi]} ${ROLES[si]}`,gdNow:gdOf(n,k),
+      apply:fn=>{fn(panelOverride(pn,n,k));pTouch()}});return}
+  if(e.target.closest("[data-preset]")){if(plan.gdo&&plan.gdo[n]){delete plan.gdo[n][k];if(!Object.keys(plan.gdo[n]).length)delete plan.gdo[n]}pTouch();return}
+  if(e.target.closest("[data-psave]")){const b=e.target.closest("[data-psave]");const m=JSON.parse(JSON.stringify(members[n]));
+    m.gundan=gdList(m).map((g,j)=>j===k?plan.gdo[n][k]:g);b.disabled=true;b.textContent="保存中…";
+    saveWithRetry(m,(st,txt)=>{$("pMsg").textContent=txt;b.textContent=st==="wait"?"順番待ち…":"保存中…"},
+      res=>{m.updatedAt=res.updatedAt;m.source="入力アプリ";members[n]=m;delete plan.gdo[n][k];if(!Object.keys(plan.gdo[n]).length)delete plan.gdo[n];
+        $("pMsg").textContent=`${n}さんの${k+1}軍を本人の軍団として保存しました。`;pTouch()},
+      why=>{b.disabled=false;b.textContent="本人の軍団として保存";$("pMsg").textContent="保存できませんでした。"+why+"　もう一度「本人の軍団として保存」を押してください。"})}});
+
+
+
+/** 武将の枠1つ分（SP武将なら副将、SP黒田官兵衛なら客将の枠も付ける） */
+const SP_KYAKU="SP黒田官兵衛";
+function gcellHtml(b,si,owner,attr,label,ovf){const g=(b.g||[])[si]||"",sub=(b.sub||[])[si]||"",ky=(b.kyaku||[])[si]||"";
+  let h=gslotHtml(g,owner,`${attr} data-kind="main"`,label,ovf(g),ROLES[si]);
+  if(g&&SP.includes(g)){h+=`<div class="subs"><span>副将</span>${gslotHtml(sub,owner,`${attr} data-kind="sub"`,label+"の副将",ovf(sub),"副将")}</div>`;
+    if(g===SP_KYAKU)h+=`<div class="subs ky"><span>客将</span>${gslotHtml(ky,owner,`${attr} data-kind="kyaku"`,label+"の客将",false,"客将")}</div>`}
+  return `<div class="gcell">${h}</div>`}
+/** 枠を押したときの武将選び。kind：main（主将など）／sub（副将：ほかと重複不可）／kyaku（客将：重複可） */
+function pickForSlot({owner,list,k,bi,si,kind,title,gdNow,apply}){
+  const b=fixGd(JSON.parse(JSON.stringify(gdNow||emptyGd()))).butai[bi];
+  const cur=kind==="main"?b.g[si]:kind==="sub"?b.sub[si]:b.kyaku[si];
+  const self=b.g[si];
+  openGenPicker({owner,title:title+(kind==="sub"?" の副将":kind==="kyaku"?" の客将":""),current:cur,
+    used:kind==="kyaku"?new Map():usedMapOf(list,k,bi,si,kind),
+    filter:kind==="main"?null:(x=>!x.sp&&x.n!==self),
+    onPick:g=>apply(gd=>{const bb=gd.butai[bi];
+      if(kind==="main"){if(bb.g[si]!==g){bb.sub[si]="";bb.kyaku[si]=""}bb.g[si]=g}
+      else if(kind==="sub")bb.sub[si]=g;else bb.kyaku[si]=g})});
+}
+/* ---------- 武将を選ぶ（保有武将の一覧からアイコンを押して選ぶ） ---------- */
+const STG=[["所持","s0"],["覚醒","s1"],["専属","s2"]];
+function ownedGens(m){const g=(m&&m.generals)||{};const list=ALLGEN.filter(x=>g[x.n]&&g[x.n].a!=null).map(x=>({n:x.n,a:g[x.n].a,s:g[x.n].s}));
+  SP.forEach(n=>{const v=(m&&m.sp||{})[n];if(v&&Object.values(v).some(x=>x!=null&&x!==""))list.push({n,a:-1,sp:true})});return list}
+function gicon(n,a){const ch=n.replace(/^(SP|覇・|略・|姫・)/,"").charAt(0);return `<span class="gi ${a===2?"s2":a===1?"s1":a===-1?"sp":"s0"}" aria-hidden="true">${esc(ch)}</span>`}
+function gslotHtml(g,owner,attrs,label,ov,ph){const e=g&&owner&&(owner.generals||{})[g];
+  return `<button type="button" class="gslot ${g?"":"empty"} ${ov?"ov":""}" ${attrs} data-g="${esc(g)}" aria-label="${esc(label)}：${g?esc(g):"未設定"}">${g?gicon(g,e?e.a:(SP.includes(g)?-1:0))+`<span class="gn">${esc(g)}</span>`:'<span class="plus">＋</span>'+(ph?`<span class="ph">${ph}</span>`:"")}</button>`}
+let gpk={opts:null,filter:""};
+/** 同じ人の全軍団で使っている武将 → 「2軍 部隊③ 先陣」（今の枠は除く） */
+function usedMapOf(list,ck,cb,cs,kind){kind=kind||"main";const m=new Map();(list||[]).forEach((gd,k)=>{if(!gd)return;bts(gd).forEach((b,bi)=>[0,1,2].forEach(si=>{
+  [["main",(b.g||[])[si],""],["sub",(b.sub||[])[si],"の副将"]].forEach(([kd,g,suf])=>{g=String(g||"").trim();if(!g||(k===ck&&bi===cb&&si===cs&&kd===kind)||m.has(g))return;m.set(g,`${k+1}軍 部隊${BT_MARK[bi]} ${ROLES[si]}${suf}`)})}))});return m}
+function openGenPicker(o){gpk.opts=o;gpk.filter="";$("gpkQ").value="";$("gpkT").textContent=o.title;renderGenPicker();$("gpk").hidden=false;try{$("gpkQ").focus({preventScroll:true})}catch(e){}}
+function closeGenPicker(){$("gpk").hidden=true;gpk.opts=null}
+function renderGenPicker(){const o=gpk.opts;if(!o)return;const q=$("gpkQ").value.trim(),f=gpk.filter;
+  let list=ownedGens(o.owner);if(o.filter)list=list.filter(o.filter);
+  if(q)list=list.filter(x=>x.n.includes(q));
+  if(f!=="")list=list.filter(x=>String(x.a)===f);
+  list.sort((a,b)=>b.a-a.a);
+  $("gpkList").innerHTML=list.length?list.map(x=>{const usedAt=x.n!==o.current&&o.used.get(x.n), used=!!usedAt;
+    return `<button type="button" class="gtile ${x.n===o.current?"cur":""}" data-pick="${esc(x.n)}" ${used?`disabled title="${esc(usedAt)}で使用中"`:""}>${gicon(x.n,x.a)}<span class="gn">${esc(x.n)}</span><small>${x.sp?"SP":x.a===2?"専属"+(x.s?" "+x.s:""):x.a===1?"覚醒":"所持"}</small>${used?`<small class="uat">${esc(usedAt)}</small>`:""}</button>`}).join("")
+    :`<p class="legend">${ownedGens(o.owner).length?"条件に合う武将がいません":"この人は「武将」の欄がまだ入力されていません"}</p>`;
+  document.querySelectorAll("#gpkF button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f===f))}
+$("gpkQ").addEventListener("input",renderGenPicker);
+$("gpkF").addEventListener("click",e=>{const b=e.target.closest("[data-f]");if(!b)return;gpk.filter=b.dataset.f;renderGenPicker()});
+$("gpkList").addEventListener("click",e=>{const b=e.target.closest("[data-pick]");if(!b||b.disabled)return;const o=gpk.opts;closeGenPicker();o.onPick(b.dataset.pick)});
+$("gpkClear").addEventListener("click",()=>{const o=gpk.opts;closeGenPicker();if(o)o.onPick("")});
+$("gpkX").addEventListener("click",closeGenPicker);
+$("gpk").addEventListener("click",e=>{if(e.target.id==="gpk")closeGenPicker()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("gpk").hidden)closeGenPicker()});
+
+/* ---------- 記入シート（A4片面2枚：①基本・兵種・相克など ②武将）。前回値は薄い字、なければ空欄 ---------- */
+const PS_HINT={"北条早雲":"守護霊6セット%","織田信長":"守護霊6セット%","井伊直虎":"守護霊6セット%","豊臣秀吉":"守護霊6セット%","伊達成実":"守護霊6セット%","斎藤利三":"守護霊6セット%",
+  "真田幸村":"スキルの現在%","柳生宗厳":"スキルの現在%","池田恒興":"スキルの現在%","赤井直正":"スキルの現在%","伊達政宗":"スキルの現在%","甲斐姫":"スキルの現在%",
+  "ねね":"恋歌の%（専属Lv計×0.8）","細川藤孝":"スキルの%"};
+const psV=v=>v==null||v===""?"":`<span class="pv">${esc(v)}</span>`;
+const psB=(v,w)=>`<span class="bx"${w?` style="width:${w}mm"`:""}>${psV(v)}</span>`;
+/** ○で囲む選択肢。cur と同じものは薄い丸を付ける */
+const psC=(opts,cur)=>`<span class="cs">${opts.map(([v,l])=>`<span class="co${cur!=null&&String(cur)===String(v)?" on":""}">${esc(l)}</span>`).join("")}</span>`;
+function psHead(m,title,no){return `<div class="ps-h"><div><b class="ps-t">覇権同盟名簿　記入シート ${no}</b><span class="ps-st">${esc(title)}</span></div>
+  <div class="ps-nm">名前 <span class="ps-line">${m?esc(m.name):""}</span>　記入日 <span class="ps-line s"></span>／<span class="ps-line s"></span></div></div>
+  <p class="ps-lg"><span class="pv">薄い字</span>は前回入力された値です。変わっていなければそのまま、変わっていたら横に書き直してください。空欄は未入力です。○の項目は当てはまるものを○で囲みます。</p>`}
+function psSec(t,where,body){return `<section class="ps-s"><h3>${esc(t)}${where?`<small>見る場所：${esc(where)}</small>`:""}</h3>${body}</section>`}
+function psPage1(m){const d=m||{};
+  const base=`<div class="ps-row">戦力 ${psB(d.power,22)} 万　　集結数 ${psB(d.rally,28)}</div>`;
+  const sp=`<table class="pt"><tr><th></th>${SP.map(n=>`<th>${esc(n.replace("SP","SP "))}</th>`).join("")}</tr>
+    <tr><th>主義</th>${SP.map(n=>`<td>${psB(((d.sp||{})[n]||{}).shugi,10)}</td>`).join("")}</tr>
+    <tr><th>副将</th>${SP.map(n=>`<td>${psC([[0,"0"],[1,"1"],[2,"2"],[3,"3"]],((d.sp||{})[n]||{}).fuku)}</td>`).join("")}</tr></table>
+    <p class="ps-n">主義：アイコン左上の数字／副将：0 開放なし・1 副将有効・2 守護霊有効・3 衣装＋神格。持っていないSP武将は空欄のまま。</p>`;
+  const tr=`<table class="pt"><tr><th></th><th>LV（強化なら○）</th><th>上級軍略</th><th>進度（LV合計）</th><th>具足SR</th><th>具足SSR</th><th>軍馬LV20</th></tr>
+    ${TROOPS.map(t=>{const x=(d.troops||{})[t]||{};return `<tr><th>${t}兵</th><td>${psB(x.lv,10)} ${psC([[1,"強化"]],x.lvPlus?1:null)}</td><td>${psC([["","ー"],["初","初"],["中","中"],["上","上"]],x.gunryaku||null)}</td>
+      <td>${psB(x.shindo,14)}</td><td>${psB(x.gusoku_sr,10)}</td><td>${psB(x.gusoku_ssr,10)}</td><td>${psB(x.gunba,10)}</td></tr>`}).join("")}</table>`;
+  const sk=d.sk||{},h=sk.hime||{},te=sk.teien||{};
+  const skT=`<table class="pt"><tr><th></th>${TROOPS.map(t=>`<th>${t} 有利</th><th>${t} 不利</th>`).join("")}<th>庭園 有利</th><th>庭園 不利</th></tr>
+    <tr><th>姫装備の合計</th>${TROOPS.map(t=>`<td>${psB((h[t]||{}).u,11)}</td><td>${psB((h[t]||{}).f,11)}</td>`).join("")}<td>${psB(te.u,11)}</td><td>${psB(te.f,11)}</td></tr></table>`;
+  const hs=Object.entries(d.himeSk||{}), rows=[...hs,...Array(Math.max(3,5-hs.length)).fill(null)];
+  const hsT=`<table class="pt"><tr><th>姫の名前</th>${TROOPS.map(t=>`<th>${t} 有利</th><th>${t} 不利</th>`).join("")}</tr>
+    ${rows.map(r=>`<tr><td class="nmc">${r?psV(r[0]):""}</td>${TROOPS.map(t=>{const v=r?((r[1]||{})[t]||{}):{};return `<td>${psB(v.u,11)}</td><td>${psB(v.f,11)}</td>`}).join("")}</tr>`).join("")}</table>
+    <p class="ps-n">不利もマイナスは付けずに数字だけ。姫ごとの欄は、集結に出す軍団の姫の分だけ数えたいときに書きます（書けば上の「姫装備の合計」の代わりに使います）。</p>`;
+  const jn=`<table class="pt"><tr><th></th><th>付けている陣</th>${JIN.map(j=>`<th>${j}の相克 有利</th><th>${j} 不利</th>`).join("")}</tr>
+    ${TROOPS.map(t=>{const x=(d.jin||{})[t]||{};return `<tr><th>${t}兵</th><td>${psC([["天","天"],["地","地"],["雲","雲"],["","なし"]],x.j||null)}</td>${JIN.map(j=>{const v=(x.v||{})[j]||{};return `<td>${psB(v.u,10)}</td><td>${psB(v.f,10)}</td>`}).join("")}</tr>`}).join("")}</table>`;
+  const has=(o,k)=>o&&o[k]?1:null;
+  const hm=`<div class="ps-row"><b class="ps-k">極意兵法</b>${HEIHO.map(n=>psC([[1,n]],has(d.heiho,n))).join(" ")}</div>
+    <div class="ps-row"><b class="ps-k">SSRのお面</b>${MEN.map(n=>psC([[1,n]],has(d.men,n))).join(" ")}</div>
+    <table class="pt"><tr><th>神格</th>${SHIN.map(n=>`<th class="sm">${esc(n)}</th>`).join("")}</tr><tr><th>LV</th>${SHIN.map(n=>`<td>${psB((d.shin||{})[n],7)}</td>`).join("")}</tr></table>`;
+  const al=d.asLv||{}, as=d.ashura||{};
+  const asT=`<div class="ps-row">中心（藕糸の孔の級）${psB(al.center,10)}</div>
+    <table class="pt"><tr><th></th><th>全体LV</th>${["Lv30","Lv60","Lv90"].map(l=>`<th>${l}スキル名</th><th>LV</th>`).join("")}</tr>
+    ${TROOPS.map(t=>{const a=al[t]||{};return `<tr><th>${t}</th><td>${psB(a.all,10)}</td>${[0,1,2].map(k=>`<td class="nmc">${psV((as[t]||[])[k])}</td><td>${psB((a.s||[])[k],7)}</td>`).join("")}</tr>`}).join("")}</table>`;
+  const it=`<table class="pt"><tr>${ITEMS.map(([,l])=>`<th>${esc(l)}</th>`).join("")}</tr><tr>${ITEMS.map(([k])=>`<td>${psB((d.items||{})[k],14)}</td>`).join("")}</tr></table>`;
+  return `<div class="ps-page">${psHead(m,"基本・SP武将・兵種・相克など","①")}
+    ${psSec("基本","町画面上部の戦力／一族→構成城市",base)}
+    ${psSec("SP武将","主義アイコン左上の数字／副将アイコンを押して画面下",sp)}
+    ${psSec("兵種","LV：厩舎・射場・兵舎の訓練の右上／軍略：学問所の研究→軍略／具足：具足屋／軍馬：牧場の名簿",tr)}
+    ${psSec("相克（姫装備・庭園）","姫武者館の育成→装備総覧の「八尺瓊勾玉」タブ／庭園→風雅→風雅総覧→政令タブ",skT+hsT)}
+    ${psSec("具足の陣と相克","各施設の具足屋。付けている陣に○、陣の相克スキルの%",jn)}
+    ${psSec("兵法・お面・神格","軍学道場の兵法選択／具足屋→面の図鑑／神格名簿→昇格の〇の数。持っているものに○",hm)}
+    ${psSec("阿修羅","稽古場→阿修羅の怒り（スキルLVは〇5つでLV5、金色の〇1つごとに+1）",asT)}
+    ${psSec("加速アイテム（個数）","倉庫→戦略タブ",it)}</div>`}
+function psPage2(m){const G=(m&&m.generals)||{};
+  const row=(n,s)=>{const e=G[n], cur=e?e.a:null, ex=EXTRA[n];
+    const xs=ex?`<div class="gx">${ex.map(l=>`<span>${esc(l.replace("相克","").replace("必要命魂","命魂")||"相克")}${psB(e&&e.x?e.x[l]:null,8)}</span>`).join("")}${PS_HINT[n]?`<i>${esc(PS_HINT[n])}</i>`:""}</div>`:"";
+    return `<div class="gr"><span class="gn">${esc(n)}</span>${psC([["","―"],[0,"0"],[1,"1"],[2,"2"]],cur)}${s?`<span class="lv">Lv${psB(e&&e.a===2?e.s:null,6)}</span>`:"<span class=\"lv\"></span>"}${xs}</div>`};
+  return `<div class="ps-page">${psHead(m,"武将（覚醒・守護霊）","②")}
+    <p class="ps-n b">見る場所：武将→詳細の覚醒タブと守護霊（左下の合計÷6）。<b>―</b> 未所持　<b>0</b> 覚醒なし（化楽天まで）　<b>1</b> 覚醒（他化自在天）　<b>2</b> 専属守護霊覚醒 → 2のときだけ <b>Lv</b>（6枠すべてが到達している数値）を書きます。
+    相克・潜能・命魂は持っている武将だけ。相克の馬・弓・歩は使う兵種の欄に書きます。潜能は5個のうち開放した数。</p>
+    <div class="gcols">${GENS.map(([c,l])=>`<div class="gc">${esc(c)}</div>`+l.map(([n,s])=>row(n,s)).join("")).join("")}</div></div>`}
+function printSheets(list){const area=$("printArea");
+  area.innerHTML=list.map(m=>psPage1(m)+psPage2(m)).join("");
+  document.body.classList.add("printing");
+  const done=()=>{document.body.classList.remove("printing");area.innerHTML="";window.removeEventListener("afterprint",done)};
+  window.addEventListener("afterprint",done);
+  setTimeout(()=>{try{window.print()}catch(e){done()}},50)}
+$("printSheet").addEventListener("click",()=>{if(draft)readSimple();printSheets([draft?JSON.parse(JSON.stringify(draft)):null])});
+$("printSel").addEventListener("click",()=>{const l=[...selected].map(id=>members[id]).filter(Boolean);
+  if(!l.length){$("delMsg").textContent="印刷する人を左のチェックで選んでください（白紙は「白紙の記入シートを印刷」）。";return}printSheets(l)});
+$("printBlank").addEventListener("click",()=>printSheets([null]));
+
+/* ---------- データ接続（Googleスプレッドシート） ---------- */
+function hasGas(){return !!(window.google&&google.script&&google.script.run)}
+function refreshNames(){}
+function loadAll(){
+  if(!hasGas()){$("conn").textContent="スプシに接続できません（Apps ScriptのWebアプリとして開いてください）";setLd("err","スプシに接続できません（Apps ScriptのWebアプリとして開いてください）");renderRally();renderRoster();return}
+  $("dot").classList.remove("ok");$("conn").textContent="スプシから読み込み中…";
+  setLd("busy","スプシから読み込み中…　しばらくお待ちください");
+  loadFormation();   // 編成データは名簿と同時に読み込む（待ち時間を短くする）
+  google.script.run.withSuccessHandler(list=>{
+      setLd("ok","読み込み完了　操作できます");
+      members={};list.forEach(m=>{if(m&&m.name)members[m.name]=m});
+      $("dot").classList.add("ok");$("conn").textContent=`スプシ ${list.length}人（${new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})} 読込）`;
+      refreshNames();
+      if(curId&&members[curId]&&!dirty)openMember(curId);
+      else if(!curId){let last=null;try{last=localStorage.getItem("meibo-who")}catch(e){}
+        if(last&&members[last])openMember(last)}
+      const v=curView;if(v==="roster")renderRoster();if(v==="rally")renderRally();if(v==="view")renderView();
+      if(formLoaded)afterFormation();})
+    .withFailureHandler(err=>{$("conn").textContent="読み込めませんでした。「最新のデータに更新」を押してください。";setLd("err","読み込めませんでした。「最新のデータに更新」を押してください")})
+    .getAll();
+}
+function start(){
+  $("ver").textContent=APP_VERSION;
+  $("reload").addEventListener("click",()=>{
+    if(dirty){$("status").textContent="未保存の変更があります。先に「保存」を押してから更新してください。";$("status").className="status dirty";return}
+    loadAll();
+  });
   buildForm();buildChips();
+  $("heikiList").innerHTML=HEIKI.map(n=>`<option value="${n}">`).join("");$("himeList").innerHTML=HIME.map(n=>`<option value="${n}">`).join("");
+  $("genList").innerHTML=[...ALLGEN.map(g=>g.n),...SP].map(n=>`<option value="${n}">`).join("");
   $("fGen").innerHTML='<option value="">指定なし</option>'+GENS.map(([c,l])=>`<optgroup label="${c}">${l.map(([n])=>`<option>${n}</option>`).join("")}</optgroup>`).join("");
-  route();
-  db=await window.claude?.use?.("db").catch(()=>null)??null;
-  const user=await window.claude?.use?.("user").catch(()=>null)??null;
-  if(!db){$("conn").textContent="共有データに接続できません（サインインが必要です）";renderRally();renderRoster();return}
-  try{const c=await user?.can?.("data.write");if(c===false){canWrite=false}}catch(e){}
-  db.collection("members").onSnapshot(snap=>{
-    snap.docChanges().forEach(ch=>{if(ch.type==="removed")delete members[ch.doc.id];else members[ch.doc.id]=ch.doc.data()});
-    $("dot").classList.add("ok");$("conn").textContent=`共有データ ${Object.keys(members).length}人`+(canWrite?"":"（閲覧のみ）");
-    refreshNames();
-    if(!curId){let last=null;try{last=localStorage.getItem("meibo-who")}catch(e){}
-      const id=(last&&members[last])?last:Object.keys(members).find(k=>members[k].name==="肥後菊池武光");if(id)openMember(id)}
-    else if(!dirty&&members[curId])openMember(curId);
-    const v=(location.hash||"#input").slice(1);if(v==="roster")renderRoster();if(v==="rally")renderRally();
-  },err=>{$("conn").textContent="共有データの読み込みが止まりました。ページを開き直してください。"});
+  // コード.gs が古くて getAppUrl がなくても、読み込みは止めない
+  if(hasGas()){
+    try{const r=google.script.run.withSuccessHandler(u=>{appUrl=u||""}).withFailureHandler(()=>{});if(typeof r.getAppUrl==="function")r.getAppUrl()}catch(e){}
+    try{if(google.script.url)google.script.url.getLocation(loc=>{const q=(loc&&loc.parameter)||{};
+      if(q.mode==="view"){viewMode=true;pv={clan:q.clan||"",name:q.p||""};document.body.classList.add("viewonly");curView="view";route()}})}catch(e){}
+  }
+  try{route()}catch(e){console.error(e)}
+  loadAll();
 }
 start();
 </script>
